@@ -789,9 +789,12 @@
         <span id="saveStatusIndicator" class="text-emerald-700 font-medium flex items-center gap-1.5 text-[13px]">
           <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 本地实时保存中
         </span>
-        <button onclick="bindDirectLocalJsonFile()" id="bindLocalJsonBtn" class="btn-primary w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5" title="选一个硬盘上的文件夹，停手 15 秒后自动写入">
-          <span>📂 关联本地数据文件夹</span>
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button onclick="handleLocalDirBtnClick()" id="bindLocalJsonBtn" class="btn-primary flex-1 min-w-0 py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 truncate" title="选一个硬盘上的文件夹，停手 15 秒后自动写入">
+            <span>📂 关联本地数据文件夹</span>
+          </button>
+          <button onclick="bindDirectLocalJsonFile()" id="changeLocalDirBtn" class="hidden btn-soft px-2.5 py-2 rounded-xl text-[12px] font-medium text-slate-600 shrink-0" title="更换其他本地数据文件夹">更换</button>
+        </div>
         <button onclick="openGitHubSyncModal()" id="sidebarGhSyncBtn" class="btn-soft w-full py-1.5 px-3 rounded-xl text-[12.5px] font-semibold text-slate-700 flex items-center justify-center gap-1.5" title="配置 GitHub 私有仓库，实现电脑与手机端双向同步">
           <span>☁️ GitHub 云同步设置</span>
         </button>
@@ -958,7 +961,7 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">前置工作（可留空）</label>
+            <label class="block font-semibold text-slate-700 mb-1">上游 / 父节点（可留空）</label>
             <select id="inputTaskParent" class="w-full border border-slate-300 rounded-xl px-2.5 py-2 text-[13px] bg-white"></select>
           </div>
           <div>
@@ -1406,6 +1409,7 @@
       return {
         schemaVersion: CURRENT_SCHEMA_VERSION,
         updatedAt: new Date().toISOString(),
+        meta: { lastLocalDirName: '' },
         categories: [
           { id: 'cat-1', name: '🎓 我的科研', target: '论文与实验脉络', color: 'indigo', hubX: 80, hubY: 160, order: 0, archived: false, archivedAt: '' },
           { id: 'cat-2', name: '🔬 其他课题与杂项', target: '实验 · 综述 · 数据处理', color: 'emerald', hubX: 80, hubY: 380, order: 1, archived: false, archivedAt: '' }
@@ -1517,10 +1521,14 @@
       remapDeps(tasks);
       remapDeps(trash);
 
+      const rawMeta = (rawParsed.meta && typeof rawParsed.meta === 'object') ? rawParsed.meta : {};
       return {
         schemaVersion: CURRENT_SCHEMA_VERSION,
         // 保留原始时间戳：覆盖它会让 adoptDirData 的新旧比较永远判定"文件更新"，从而静默覆盖用户数据
         updatedAt: (typeof rawParsed.updatedAt === 'string' && rawParsed.updatedAt) ? rawParsed.updatedAt : new Date().toISOString(),
+        meta: {
+          lastLocalDirName: typeof rawMeta.lastLocalDirName === 'string' ? rawMeta.lastLocalDirName.trim() : ''
+        },
         categories,
         tasks,
         trash
@@ -1922,7 +1930,7 @@
         { sep: true },
         { icon: '📋', label: '复制为新记录', action: () => duplicateTask(t.id) },
         { icon: '🗑', label: '移到回收站', danger: true, action: () => moveTaskToTrash(t.id) },
-        ...(kids.length ? [{ label: null, header: `完成后解锁 ${kids.length} 项` }] : [])
+        ...(kids.length ? [{ label: null, header: `包含 ${kids.length} 项细分/下游` }] : [])
       ];
     }
 
@@ -3591,8 +3599,10 @@
             const d = Math.abs(y2 - y1) <= 1
               ? `M ${x1} ${y1} L ${x2} ${y2}`
               : `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
-            const strokeColor = task.status === 'done' ? '#10b981' : palette.stroke;
-            pathsHtml += `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.8" />`;
+            const isHubDoing = task.status === 'in_progress';
+            const strokeColor = task.status === 'done' ? '#10b981' : (isHubDoing ? '#4f46e5' : palette.stroke);
+            const hubAnimClass = isHubDoing ? 'edge-animated' : '';
+            pathsHtml += `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.85" class="${hubAnimClass}" />`;
           }
         } else {
           visibleDeps.forEach(depId => {
@@ -3610,27 +3620,22 @@
               ? `M ${x1} ${y1} L ${x2} ${y2}`
               : `M ${x1} ${y1} L ${sx} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
 
-            const depDone = parent.status === 'done';
-            const allDepsDone = isTaskUnlocked(task);
+            // 细分脉络视觉规则：只看下游节点当前状态，不要求上游先完成
+            // 进行中 -> 靛蓝流动线；已完成 -> 绿色实线；待办 -> 干净的灰蓝实线
             let stroke = '#94a3b8';
             let marker = 'url(#arrow-locked)';
             let extraClass = '';
-            let dashAttr = '';
 
             if (task.status === 'done') {
               stroke = '#10b981';
               marker = 'url(#arrow-done)';
-            } else if (allDepsDone) {
+            } else if (task.status === 'in_progress') {
               stroke = '#4f46e5';
               marker = 'url(#arrow-active)';
               extraClass = 'edge-animated';
-            } else if (depDone) {
-              stroke = '#10b981';
-              marker = 'url(#arrow-done)';
             }
 
-            if (!allDepsDone && task.status !== 'done') dashAttr = ' stroke-dasharray="5 4"';
-            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" class="${extraClass}"${dashAttr} marker-end="${marker}" /></g>`;
+            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" /></g>`;
           });
         }
       });
@@ -4369,7 +4374,7 @@
             </div>
 
             <div class="text-[13px]">
-              <span class="text-[13px] text-slate-500 block mb-1">前置依赖工作（可勾选多个，全部完成后本项自动解锁）：</span>
+              <span class="text-[13px] text-slate-500 block mb-1">上游父节点（可勾选多个，用于在画布中建立脉络连线）：</span>
               ${candidateDeps.length === 0 ? '<div class="text-slate-400 text-[13px]">当前主题下暂无其它可选前置节点</div>' : `
                 <div class="max-h-28 overflow-y-auto space-y-1 bg-white p-2 rounded-xl border border-slate-200/90">
                   ${candidateDeps.map(cand => {
@@ -4391,7 +4396,7 @@
             </div>
 
             <div class="text-[13px]">
-              <span class="text-[13px] text-slate-500 block mb-1">后续紧接着要做 (${nextTasks.length})：</span>
+              <span class="text-[13px] text-slate-500 block mb-1">细分 / 下游节点 (${nextTasks.length})：</span>
               ${nextTasks.length === 0 ? `
                 <div class="text-[13px] text-slate-400 bg-white/80 rounded-xl p-2 border border-dashed border-indigo-200">
                   暂无后续节点，点右上角「+ 衍生下一步工作」继续向下延伸。
@@ -4655,23 +4660,30 @@
       }
     }
 
+    function getParentsWithAllChildrenDone(task) {
+      return getTaskDeps(task).map(id => getTaskById(id)).filter(p => {
+        if (!p || p.status === 'done') return false;
+        const kids = getDownstreamTasks(p.id).filter(c => !isCategoryArchived(c.categoryId));
+        return kids.length > 0 && kids.every(c => c.status === 'done');
+      });
+    }
+
     function toggleTaskComplete(taskId) {
       const task = getTaskById(taskId);
       if (!task) return;
       if (task.status === 'done') {
         task.status = 'in_progress';
         restoreSubtasksFromUndo(task);
-        showToast('↩ 已撤回完成（之前勾选的子步骤进度已保留，下游任务已自动重算阻塞状态）');
+        showToast('↩ 已撤回完成（之前勾选的子步骤进度已保留）');
       } else {
         // Save current subtask states before marking all done so undo never wipes prior progress!
         task._savedSubtasksDone = (task.subtasks || []).map(s => Boolean(s.done));
         task.status = 'done';
         (task.subtasks || []).forEach(s => { s.done = true; });
 
-        // Check which downstream tasks are now 100% unlocked (all their deps are done)
-        const newlyUnlocked = getDownstreamTasks(task.id).filter(c => c.status !== 'done' && isTaskUnlocked(c));
-        if (newlyUnlocked.length > 0) {
-          showToast(`✓ 已完成！自动解锁下一步：「${newlyUnlocked.map(c => c.title).join('、')}」`);
+        const readyParents = getParentsWithAllChildrenDone(task);
+        if (readyParents.length > 0) {
+          showToast(`✓ 已完成！上游「${readyParents.map(p => p.title).join('、')}」的细分项已全部完成`);
         } else {
           showToast('✓ 工作已完成！');
         }
@@ -4691,10 +4703,10 @@
       if (allDone) {
         task._savedSubtasksDone = task.subtasks.map((_, i) => i < task.subtasks.length - 1);
         task.status = 'done';
-        const newlyUnlocked = getDownstreamTasks(task.id).filter(c => c.status !== 'done' && isTaskUnlocked(c));
-        showToast(newlyUnlocked.length > 0
-          ? `全部子步骤完成！已自动解锁下一步：「${newlyUnlocked[0].title}」`
-          : '全部子步骤已完成，节点自动归档！');
+        const readyParents = getParentsWithAllChildrenDone(task);
+        showToast(readyParents.length > 0
+          ? `全部子步骤完成！上游「${readyParents[0].title}」的细分项已全部完成`
+          : '全部子步骤已完成，节点已标为完成！');
       } else if (task.status === 'done') {
         task.status = 'in_progress';
       }
@@ -5477,8 +5489,8 @@
 
       const updateParentOptions = (catId, selectedParentId) => {
         const candidates = appState.data.tasks.filter(t => t.categoryId === catId || t.id === selectedParentId);
-        parentSelect.innerHTML = `<option value="">（无前置，直接作为该课题起始工作）</option>` +
-          candidates.map(t => `<option value="${t.id}" ${t.id === selectedParentId ? 'selected' : ''}>前置：${escapeHtml(t.title)}</option>`).join('');
+        parentSelect.innerHTML = `<option value="">（直接作为该课题根节点）</option>` +
+          candidates.map(t => `<option value="${t.id}" ${t.id === selectedParentId ? 'selected' : ''}>上游：${escapeHtml(t.title)}</option>`).join('');
       };
 
       updateParentOptions(chosenCatId, parentTaskId || '');
@@ -6029,18 +6041,62 @@
       });
     }
 
+    const DIR_META_KEY = 'lly_local_dir_meta_v1';
+
+    function rememberLocalDirName(name) {
+      const clean = String(name || '').trim();
+      if (!clean) return;
+      if (!appState.data.meta || typeof appState.data.meta !== 'object') appState.data.meta = {};
+      appState.data.meta.lastLocalDirName = clean;
+      try {
+        localStorage.setItem(DIR_META_KEY, JSON.stringify({ name: clean, savedAt: new Date().toISOString() }));
+      } catch (e) {}
+    }
+
+    function getRememberedLocalDirName() {
+      if (appState.dataDir && appState.dataDir.name) return appState.dataDir.name;
+      if (appState.data && appState.data.meta && appState.data.meta.lastLocalDirName) {
+        return appState.data.meta.lastLocalDirName;
+      }
+      try {
+        const raw = localStorage.getItem(DIR_META_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.name) return String(parsed.name);
+        }
+      } catch (e) {}
+      return '';
+    }
+
+    function handleLocalDirBtnClick() {
+      if (appState.dataDir && appState.dataDirNeedGrant) {
+        resumeDataDir();
+      } else {
+        bindDirectLocalJsonFile();
+      }
+    }
+
     function updateDirUI() {
       const btn = document.getElementById('bindLocalJsonBtn');
+      const chgBtn = document.getElementById('changeLocalDirBtn');
       if (!btn) return;
+      const remembered = getRememberedLocalDirName();
       if (appState.dataDir && appState.dataDirNeedGrant) {
-        btn.className = 'w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-amber-800 bg-amber-50 border border-amber-300 flex items-center justify-center gap-1.5';
-        btn.innerHTML = '<span>⚠️ 「' + escapeHtml(appState.dataDir.name) + '」需点一下恢复授权</span>';
+        btn.className = 'flex-1 min-w-0 py-2 px-2.5 rounded-xl text-[12.5px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 flex items-center justify-center gap-1 truncate transition';
+        btn.innerHTML = '<span class="truncate">🔓 恢复「' + escapeHtml(appState.dataDir.name) + '」授权</span>';
+        if (chgBtn) chgBtn.classList.remove('hidden');
       } else if (appState.dataDir) {
-        btn.className = 'w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 flex items-center justify-center gap-1.5';
-        btn.innerHTML = '<span>✅ 已连接「' + escapeHtml(appState.dataDir.name) + '」· 点此更换</span>';
+        btn.className = 'flex-1 min-w-0 py-2 px-2.5 rounded-xl text-[12.5px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 flex items-center justify-center gap-1 truncate transition';
+        btn.innerHTML = '<span class="truncate">✅ 已连接「' + escapeHtml(appState.dataDir.name) + '」</span>';
+        if (chgBtn) chgBtn.classList.remove('hidden');
+      } else if (remembered) {
+        btn.className = 'btn-primary flex-1 min-w-0 py-2 px-2.5 rounded-xl text-[12.5px] font-semibold text-white flex items-center justify-center gap-1 truncate';
+        btn.innerHTML = '<span class="truncate">📂 关联「' + escapeHtml(remembered) + '」</span>';
+        if (chgBtn) chgBtn.classList.add('hidden');
       } else {
-        btn.className = 'btn-primary w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5';
+        btn.className = 'btn-primary flex-1 min-w-0 py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 truncate';
         btn.innerHTML = '<span>📂 关联本地数据文件夹</span>';
+        if (chgBtn) chgBtn.classList.add('hidden');
       }
     }
 
@@ -6243,6 +6299,7 @@
       hideDirErrorBanner();
       appState.dataDirBackupDay = null;
       appState.dataDirNeedGrant = false;
+      rememberLocalDirName(dir.name);
       await dirSaveHandle(dir);
       updateDirUI();
       const remote = normalizeLoaded(await readDirData(dir));
@@ -6403,6 +6460,7 @@
         if (!dir) { updateDirUI(); setSaveStatus('local'); return; }
         appState.dataDir = dir;
         appState.dataDirReadError = false;   // 每次启动重新检测，不沿用上次会话的错误状态
+        rememberLocalDirName(dir.name);
         const perm = await dirPermission(dir, false);
         updateDirUI();
         if (perm === 'granted' || perm === 'unsupported') {
@@ -6764,6 +6822,7 @@
           appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
           appState.ghSyncing = false;
           renderAll();
+          updateDirUI();
           updateSyncButtonsUI();
           showToast('☁️ 已从 GitHub 拉取最新记录');
           return 'adopted';
