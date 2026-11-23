@@ -573,7 +573,8 @@
     /* ===== 侧栏分类拖拽排序 ===== */
     .cat-sort-item { cursor: grab; }
     .cat-sort-item.dragging { opacity: 0.4; }
-    .cat-drop-target { border-top: 2px solid #6366f1 !important; }
+    .cat-drop-before { box-shadow: inset 0 3px 0 0 #4f46e5 !important; border-top-color: #4f46e5 !important; }
+    .cat-drop-after { box-shadow: inset 0 -3px 0 0 #4f46e5 !important; border-bottom-color: #4f46e5 !important; }
     /* ===== 第四轮新增（回收站 / 删分类弹窗 / 看板切换） ===== */
     .w-6 { width: 1.5rem; }
     .h-6 { height: 1.5rem; }
@@ -788,7 +789,7 @@
         <span id="saveStatusIndicator" class="text-emerald-700 font-medium flex items-center gap-1.5 text-[13px]">
           <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 本地实时保存中
         </span>
-        <button onclick="bindDirectLocalJsonFile()" id="bindLocalJsonBtn" class="btn-primary w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5" title="选一个硬盘上的文件夹，停手 6 秒后自动写入">
+        <button onclick="bindDirectLocalJsonFile()" id="bindLocalJsonBtn" class="btn-primary w-full py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5" title="选一个硬盘上的文件夹，停手 15 秒后自动写入">
           <span>📂 关联本地数据文件夹</span>
         </button>
         <button onclick="openGitHubSyncModal()" id="sidebarGhSyncBtn" class="btn-soft w-full py-1.5 px-3 rounded-xl text-[12.5px] font-semibold text-slate-700 flex items-center justify-center gap-1.5" title="配置 GitHub 私有仓库，实现电脑与手机端双向同步">
@@ -1101,7 +1102,7 @@
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div>
           <h3 class="font-bold text-slate-800 text-[15px]">☁️ GitHub 私有仓库云同步</h3>
-          <p class="text-[12px] text-slate-400 mt-0.5">配置仅保存在当前浏览器本地，不会写入数据文件；停手 6 秒自动合并推送</p>
+          <p class="text-[12px] text-slate-400 mt-0.5">配置仅保存在当前浏览器本地，不会写入数据文件；停手 15 秒自动合并推送</p>
         </div>
         <button onclick="closeGitHubSyncModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
       </div>
@@ -1618,6 +1619,7 @@
       // 侧栏分类拖拽排序
       catDragId: null,
       catDragOverId: null,
+      catDragPos: 'before',
       // 课题归档预览
       viewingArchivedCatId: null,
       archiveSearchQuery: '',
@@ -1626,6 +1628,7 @@
       ghLastSha: '',
       ghDirty: false,
       ghSyncing: false,
+      ghEditSeq: 0,
       ghLastSyncAt: '',
       ghLastError: ''
     };
@@ -1716,14 +1719,16 @@
         if (emb) emb.textContent = jsonPayload;
       } catch (e) {}
 
-      // 文件夹写入（6秒防抖）与缓存结果完全解耦
+      appState.ghEditSeq = (appState.ghEditSeq || 0) + 1;
+
+      // 文件夹写入（15秒防抖）与缓存结果完全解耦
       if (appState.dataDir) {
         scheduleDirWrite();
       } else {
         setSaveStatus(cacheOk ? 'local' : 'cachefail');
       }
 
-      // GitHub 云同步（6秒防抖合并推送）
+      // GitHub 云同步（15秒防抖合并推送）
       if (isGitHubSyncEnabled()) {
         scheduleGhSync();
       }
@@ -2627,8 +2632,8 @@
     function syncHubPositions() {
       const cats = getActiveCategories();
       if (cats.length === 0) return;
-      const CAT_GAP_X = 34;
-      const CAT_GAP_Y = 28;
+      const CAT_GAP_X = 64;
+      const CAT_GAP_Y = 36;
       const START_X = 60;
       const START_Y = 60;
 
@@ -3277,10 +3282,9 @@
         const active = !appState.viewingArchivedCatId && appState.selectedCategoryId === cat.id;
         const palette = COLOR_PALETTE[cat.color] || COLOR_PALETTE.indigo;
         const isDragging = appState.catDragId === cat.id;
-        const isOver = appState.catDragOverId === cat.id && appState.catDragId !== cat.id;
         catHtml += `
           <div data-cat-id="${cat.id}" data-cat-sort="1"
-            class="group relative cat-sort-item ${isDragging ? 'dragging' : ''} ${isOver ? 'cat-drop-target' : ''}"
+            class="group relative cat-sort-item ${isDragging ? 'dragging' : ''}"
             draggable="true" title="按住拖动可调整分类顺序">
             <button onclick="selectCategory('${cat.id}')" class="w-full text-left px-3 py-2.5 rounded-xl text-[13px] transition border ${
               active
@@ -3346,15 +3350,22 @@
       }
     }
 
-    // 侧栏分类拖拽排序（HTML5 drag & drop）
+    // 侧栏分类拖拽排序（按鼠标上下半区精准显示上/下蓝线，落点与蓝线 100% 一致）
     function bindCategorySort() {
       const container = document.getElementById('categoryListContainer');
       if (!container) return;
+      const clearDropIndicators = () => {
+        container.querySelectorAll('.cat-drop-before, .cat-drop-after').forEach(n => {
+          n.classList.remove('cat-drop-before', 'cat-drop-after');
+        });
+      };
       const items = container.querySelectorAll('[data-cat-sort]');
       items.forEach(el => {
         el.addEventListener('dragstart', (e) => {
           const catId = el.getAttribute('data-cat-id');
           appState.catDragId = catId;
+          appState.catDragOverId = null;
+          appState.catDragPos = 'before';
           el.classList.add('dragging');
           try { e.dataTransfer.setData('text/plain', catId); } catch (err) {}
           if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
@@ -3364,34 +3375,44 @@
           appState.catDragId = null;
           appState.catDragOverId = null;
           el.classList.remove('dragging');
-          container.querySelectorAll('.cat-drop-target').forEach(n => n.classList.remove('cat-drop-target'));
+          clearDropIndicators();
           showSortHint(false);
         });
         el.addEventListener('dragover', (e) => {
           if (!appState.catDragId) return;
           e.preventDefault();
           if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-          if (appState.catDragOverId !== el.getAttribute('data-cat-id')) {
-            appState.catDragOverId = el.getAttribute('data-cat-id');
-            container.querySelectorAll('.cat-drop-target').forEach(n => n.classList.remove('cat-drop-target'));
-            if (appState.catDragId !== appState.catDragOverId) el.classList.add('cat-drop-target');
+          const targetId = el.getAttribute('data-cat-id');
+          if (!targetId || targetId === appState.catDragId) {
+            clearDropIndicators();
+            appState.catDragOverId = null;
+            return;
           }
-        });
-        el.addEventListener('dragleave', () => {
-          el.classList.remove('cat-drop-target');
+          const rect = el.getBoundingClientRect();
+          const pos = (e.clientY - rect.top) < (rect.height / 2) ? 'before' : 'after';
+          if (appState.catDragOverId !== targetId || appState.catDragPos !== pos) {
+            appState.catDragOverId = targetId;
+            appState.catDragPos = pos;
+            clearDropIndicators();
+            el.classList.add(pos === 'before' ? 'cat-drop-before' : 'cat-drop-after');
+          }
         });
         el.addEventListener('drop', (e) => {
           e.preventDefault();
           e.stopPropagation();
           const fromId = appState.catDragId;
           const toId = el.getAttribute('data-cat-id');
-          container.querySelectorAll('.cat-drop-target').forEach(n => n.classList.remove('cat-drop-target'));
+          const pos = appState.catDragPos || 'before';
+          clearDropIndicators();
           if (!fromId || !toId || fromId === toId) return;
           const ids = Array.from(container.querySelectorAll('[data-cat-sort]')).map(n => n.getAttribute('data-cat-id'));
           const fromIdx = ids.indexOf(fromId);
-          const toIdx = ids.indexOf(toId);
-          if (fromIdx < 0 || toIdx < 0) return;
-          ids.splice(toIdx, 0, ids.splice(fromIdx, 1)[0]);
+          if (fromIdx < 0) return;
+          ids.splice(fromIdx, 1);
+          const targetIdx = ids.indexOf(toId);
+          if (targetIdx < 0) return;
+          const insertIdx = pos === 'before' ? targetIdx : targetIdx + 1;
+          ids.splice(insertIdx, 0, fromId);
           applyCategoryOrderFromIds(ids);
           showToast('分类顺序已更新');
         });
@@ -5079,11 +5100,11 @@
       const targetCategories = getVisibleCanvasCategories();
       // 全部主题预览下自动采用紧凑间距系数，大幅压缩横向与纵向跨度；单课题视图保持舒展间距
       const isCompactOverview = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && targetCategories.length >= 2;
-      const LEVEL_GAP_X = isCompactOverview ? 246 : 262;     // 层间水平步长（卡片宽 228，全览层间距仅 18px）
-      const SIBLING_GAP_Y = isCompactOverview ? 8 : 12;      // 同父兄弟节点垂直间距
-      const BRANCH_GAP_Y = isCompactOverview ? 14 : 22;      // 不同根支线垂直间距
-      const HUB_GAP = isCompactOverview ? 26 : 44;           // 课题枢纽到首层节点间距
-      const CAT_GAP_Y = isCompactOverview ? 28 : 48;         // 课题大类之间垂直间距
+      const LEVEL_GAP_X = isCompactOverview ? 296 : 312;     // 层间水平步长（卡片宽 228，留出 68~84px 舒展连线区）
+      const SIBLING_GAP_Y = isCompactOverview ? 14 : 18;     // 同父兄弟节点垂直间距
+      const BRANCH_GAP_Y = isCompactOverview ? 22 : 30;      // 不同根支线垂直间距
+      const HUB_GAP = isCompactOverview ? 48 : 60;           // 课题枢纽到首层节点间距
+      const CAT_GAP_Y = isCompactOverview ? 36 : 52;         // 课题大类之间垂直间距
       let currentCatTopY = 60;
 
       targetCategories.forEach((cat) => {
@@ -5532,7 +5553,7 @@
         const p = getTaskById(parentId);
         if (p) {
           // 紧贴父卡片正右侧（p.x + NODE_W + 48），以父卡片高度 p.y 为中心上下紧凑寻找最近空位，绝不一路往下滚雪球！
-          const targetX = p.x + NODE_W + 48;
+          const targetX = p.x + NODE_W + 72;
           const slot = findNearestFreeCanvasSlot(targetX, p.y, categoryId);
           x = slot.x;
           y = slot.y;
@@ -5960,7 +5981,7 @@
       }
       setSaveStatus('pending');
       clearTimeout(dirWriteTimer);
-      dirWriteTimer = setTimeout(flushDirWrite, 6000);
+      dirWriteTimer = setTimeout(flushDirWrite, 15000);
     }
 
     // 写入串行化：多次保存排队执行，只让最后一次真正落盘，避免旧内容后写覆盖新内容
@@ -6490,7 +6511,7 @@
     // GitHub 私有仓库双向同步引擎（6秒防抖合并推送 + 立即同步 + SHA 冲突保护）
     // =========================================================================
     const GH_SYNC_KEY = 'lly_github_sync_cfg_v1';
-    const GH_DEBOUNCE_MS = 6000;
+    const GH_DEBOUNCE_MS = 15000;
     let ghSyncTimer = null;
 
     function loadGitHubConfig() {
@@ -6768,7 +6789,10 @@
 
     async function pushToGitHub(forceOverwrite = false, silent = false) {
       if (!isGitHubSyncEnabled()) return 'disabled';
-      if (appState.ghSyncing) return 'busy';
+      if (appState.ghSyncing) {
+        appState.ghDirty = true;
+        return 'busy';
+      }
       clearTimeout(ghSyncTimer);
       const cfg = appState.ghConfig;
       appState.ghSyncing = true;
@@ -6793,6 +6817,7 @@
             }
           }
         }
+        const pushedSeq = appState.ghEditSeq || 0;
         const jsonText = JSON.stringify(appState.data, null, 2);
         const putRes = await ghPutFile(cfg, jsonText, appState.ghLastSha);
         if (putRes.conflict) {
@@ -6802,9 +6827,10 @@
             const remote = normalizeLoaded(latest.parsed);
             if (remote && buildSemanticFingerprint(remote) === buildSemanticFingerprint(appState.data)) {
               appState.ghLastSha = latest.sha;
-              appState.ghDirty = false;
+              appState.ghDirty = (appState.ghEditSeq || 0) !== pushedSeq;
               appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
               updateSyncButtonsUI();
+              if (appState.ghDirty) scheduleGhSync();
               return 'synced';
             }
             if (remote) {
@@ -6817,11 +6843,18 @@
           return 'conflict';
         }
         appState.ghLastSha = putRes.sha;
-        appState.ghDirty = false;
         appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
         appState.ghSyncing = false;
-        updateSyncButtonsUI();
-        if (!silent) showToast('☁️ 已同步到 GitHub');
+        // 版本号校验：若推送飞在网上的期间你又拖动或改了内容，保持待同步并自动补推，绝不丢同步
+        if ((appState.ghEditSeq || 0) === pushedSeq) {
+          appState.ghDirty = false;
+          updateSyncButtonsUI();
+          if (!silent) showToast('☁️ 已同步到 GitHub');
+        } else {
+          appState.ghDirty = true;
+          updateSyncButtonsUI();
+          scheduleGhSync();
+        }
         return 'pushed';
       } catch (err) {
         appState.ghSyncing = false;
