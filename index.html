@@ -674,7 +674,7 @@
       .mobile-only { display: flex !important; }
       #leftSidebar { display: none !important; }
       #graphSection { display: none !important; }
-      #recentSection {
+      #recentSection:not(.hidden), #pomodoroSection:not(.hidden), #countdownSection:not(.hidden) {
         display: flex !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -716,15 +716,21 @@
     </div>
 
     <!-- Center View Switcher (Desktop) -->
-    <div class="desktop-only flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 shadow-inner">
-      <button id="viewBtnSplit" onclick="setAppView('split')" class="px-3.5 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
+    <div class="desktop-only flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 shadow-inner gap-0.5">
+      <button id="viewBtnSplit" onclick="setAppView('split')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
         导图 + 近期
       </button>
-      <button id="viewBtnGraph" onclick="setAppView('graph')" class="px-3.5 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm">
+      <button id="viewBtnGraph" onclick="setAppView('graph')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm">
         全屏脉络导图
       </button>
-      <button id="viewBtnRecent" onclick="setAppView('recent')" class="px-3.5 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
+      <button id="viewBtnRecent" onclick="setAppView('recent')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
         近期看板
+      </button>
+      <button id="viewBtnPomodoro" onclick="setAppView('pomodoro')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
+        🍅 番茄钟
+      </button>
+      <button id="viewBtnCountdown" onclick="setAppView('countdown')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
+        📅 倒计日
       </button>
     </div>
 
@@ -742,6 +748,13 @@
       </button>
     </div>
   </header>
+
+  <!-- Mobile 3-Tab Switcher (Kanban / Pomodoro / Countdowns) -->
+  <div class="mobile-only bg-slate-900 border-b border-slate-800 px-3 py-1.5 items-center justify-center gap-1.5 shrink-0 z-20">
+    <button id="mViewBtnRecent" onclick="setAppView('recent')" class="flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition">📋 看板</button>
+    <button id="mViewBtnPomodoro" onclick="setAppView('pomodoro')" class="flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition">🍅 番茄钟</button>
+    <button id="mViewBtnCountdown" onclick="setAppView('countdown')" class="flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition">📅 倒计日</button>
+  </div>
 
   <!-- Main Workspace Area -->
   <div class="flex-1 flex overflow-hidden relative">
@@ -907,6 +920,83 @@
           </div>
         </div>
         <div id="recentTasksList" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
+      </section>
+
+      <!-- Standalone Pomodoro Focus Page -->
+      <section id="pomodoroSection" class="hidden flex-1 bg-slate-50 flex-col h-full overflow-y-auto">
+        <div class="max-w-2xl w-full mx-auto px-4 py-8 flex flex-col items-center gap-6">
+          <div class="text-center">
+            <h2 class="text-[20px] font-bold text-slate-800 tracking-tight">🍅 科研专注番茄钟</h2>
+            <p class="text-[13px] text-slate-500 mt-1">切到导图或看板时计时器会在后台继续运行，标签栏同步显示倒计时</p>
+          </div>
+
+          <!-- Preset Mode Pills -->
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <button type="button" id="pomoPreset25" onclick="setPomodoroPreset(25, '深度专注')" class="px-3.5 py-1.5 rounded-xl text-[13px] font-semibold bg-indigo-600 text-white shadow-sm transition">25 分钟专注</button>
+            <button type="button" id="pomoPreset45" onclick="setPomodoroPreset(45, '科研长专注')" class="btn-soft px-3.5 py-1.5 rounded-xl text-[13px] font-medium text-slate-700">45 分钟科研</button>
+            <button type="button" id="pomoPreset5" onclick="setPomodoroPreset(5, '短暂休息')" class="btn-soft px-3.5 py-1.5 rounded-xl text-[13px] font-medium text-slate-700">5 分钟短休</button>
+            <button type="button" id="pomoPreset15" onclick="setPomodoroPreset(15, '长休息')" class="btn-soft px-3.5 py-1.5 rounded-xl text-[13px] font-medium text-slate-700">15 分钟长休</button>
+            <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1">
+              <input id="pomoCustomMinutes" type="number" min="1" max="180" value="30" class="w-11 text-center text-[13px] font-semibold text-slate-700 focus:outline-none" />
+              <span class="text-[12px] text-slate-400">分</span>
+              <button type="button" onclick="applyCustomPomodoro()" class="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-indigo-700 text-[12px] font-semibold transition">设定</button>
+            </div>
+          </div>
+
+          <!-- Circular Timer Card -->
+          <div class="bg-white rounded-2xl border border-slate-200/90 shadow-md p-8 w-full max-w-md flex flex-col items-center gap-5">
+            <span id="pomoPhaseLabel" class="px-3 py-1 rounded-full text-[12.5px] font-semibold bg-indigo-50 text-indigo-700">深度专注</span>
+
+            <div class="relative flex items-center justify-center" style="width: 224px; height: 224px;">
+              <svg width="224" height="224" viewBox="0 0 224 224" style="transform: rotate(-90deg);">
+                <circle cx="112" cy="112" r="98" fill="none" stroke="#e2e8f0" stroke-width="10" />
+                <circle id="pomoProgressCircle" cx="112" cy="112" r="98" fill="none" stroke="#4f46e5" stroke-width="10" stroke-linecap="round" stroke-dasharray="615.75" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.35s linear, stroke 0.2s ease;" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div id="pomoTimeDisplay" class="font-mono font-bold text-slate-900 tabular-nums tracking-tight" style="font-size: 46px; line-height: 1.1;">25:00</div>
+                <div id="pomoStatusSubtext" class="text-[12px] text-slate-400 mt-1.5">准备就绪</div>
+              </div>
+            </div>
+
+            <input id="pomoFocusNote" type="text" placeholder="选填：这次专注打算做什么？（如：整理电镜图 / 读两篇文献）"
+              oninput="updatePomodoroNote(this.value)"
+              class="w-full text-center text-[13px] bg-slate-50 focus:bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+
+            <div class="flex items-center justify-center gap-2.5 w-full">
+              <button type="button" id="pomoStartPauseBtn" onclick="togglePomodoroTimer()" class="btn-primary flex-1 py-2.5 px-5 rounded-xl text-[14px] font-semibold text-white">▶ 开始专注</button>
+              <button type="button" onclick="resetPomodoroTimer()" class="btn-soft py-2.5 px-4 rounded-xl text-[13px] font-medium text-slate-700">↺ 重置</button>
+              <button type="button" id="pomoMuteBtn" onclick="togglePomodoroMute()" class="btn-soft py-2.5 px-3 rounded-xl text-[13px] font-medium text-slate-700" title="开关到点提示音">🔊</button>
+            </div>
+          </div>
+
+          <!-- Today's Focus Summary -->
+          <div class="grid grid-cols-2 gap-3 w-full max-w-md">
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm">
+              <div id="pomoTodayCount" class="text-[24px] font-bold text-indigo-600 tabular-nums">0</div>
+              <div class="text-[12.5px] text-slate-500 mt-0.5">今日完成番茄</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm">
+              <div id="pomoTodayMinutes" class="text-[24px] font-bold text-emerald-600 tabular-nums">0 分钟</div>
+              <div class="text-[12.5px] text-slate-500 mt-0.5">今日累计专注</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Standalone Important Dates Countdown Page -->
+      <section id="countdownSection" class="hidden flex-1 bg-slate-50 flex-col h-full overflow-y-auto">
+        <div class="max-w-4xl w-full mx-auto px-4 py-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-[20px] font-bold text-slate-800 tracking-tight">📅 重要日期倒计日</h2>
+              <p class="text-[13px] text-slate-500 mt-0.5">独立记录投稿截稿、开题答辩、组会汇报等大节点，自动随 GitHub 与本地文件夹同步</p>
+            </div>
+            <button type="button" onclick="openCountdownModal(null)" class="btn-primary px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold flex items-center gap-1.5">
+              <span>+</span><span>新增倒计日</span>
+            </button>
+          </div>
+          <div id="countdownListContainer" class="grid grid-cols-1 md:grid-cols-3 gap-3.5"></div>
+        </div>
       </section>
 
       <!-- Right Inspector Drawer (默认收起，仅在点『编辑详情 / 侧栏详情』时展开，点击画布不会自动消失) -->
@@ -1167,6 +1257,50 @@
     </div>
   </div>
 
+  <!-- ===== 新增 / 编辑重要日期倒计日 ===== -->
+  <div id="countdownModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="countdownModalTitle" class="font-bold text-slate-800 text-[15px]">📅 新增重要倒计日</h3>
+        <button onclick="closeCountdownModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 text-[13px]">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">事件名称 *</label>
+          <input id="inputCdTitle" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitCountdownForm();}" placeholder="如：ACS Catalysis 截稿 / 中期答辩 / 组会汇报" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">目标日期 *</label>
+            <input id="inputCdDate" type="date" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">卡片颜色</label>
+            <select id="inputCdColor" class="w-full border border-slate-300 rounded-xl px-2.5 py-2 text-[13px] bg-white">
+              <option value="rose">玫红（高优先）</option>
+              <option value="amber">琥珀橙</option>
+              <option value="indigo" selected>靛蓝</option>
+              <option value="emerald">翠绿</option>
+              <option value="cyan">青色</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">简短备注（选填）</label>
+          <input id="inputCdNote" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitCountdownForm();}" placeholder="如：提前两天给导师看终稿" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="flex items-center gap-2 pt-0.5">
+          <input id="inputCdPinned" type="checkbox" class="rounded text-indigo-600" />
+          <label for="inputCdPinned" class="font-medium text-slate-700 cursor-pointer">📌 置顶显示在最前面</label>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeCountdownModal()" class="btn-soft px-4 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium">取消</button>
+        <button onclick="submitCountdownForm()" class="btn-primary px-4 py-1.5 rounded-xl text-white text-[13px] font-semibold">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 删除课题分类确认（列出受影响记录与标签） ===== -->
   <div id="deleteCatModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
@@ -1420,7 +1554,8 @@
           { id: 'cat-2', name: '🔬 其他课题与杂项', target: '实验 · 综述 · 数据处理', color: 'emerald', hubX: 80, hubY: 380, order: 1, archived: false, archivedAt: '' }
         ],
         tasks: [],
-        trash: []
+        trash: [],
+        countdowns: []
       };
     }
 
@@ -1528,6 +1663,20 @@
       remapDeps(trash);
 
       const rawMeta = (rawParsed.meta && typeof rawParsed.meta === 'object') ? rawParsed.meta : {};
+      const usedCdIds = new Set();
+      const rawCountdowns = Array.isArray(rawParsed.countdowns) ? rawParsed.countdowns : [];
+      const countdowns = rawCountdowns.map((cd, idx) => {
+        if (!cd || typeof cd !== 'object') cd = {};
+        return {
+          id: sanitizeId(cd.id, 'cd-' + idx, usedCdIds),
+          title: String(cd.title || '重要日期').trim(),
+          date: isValidISODate(String(cd.date || '').trim()) ? String(cd.date).trim() : '',
+          color: COLOR_PALETTE[cd.color] ? cd.color : 'indigo',
+          note: typeof cd.note === 'string' ? cd.note : '',
+          pinned: Boolean(cd.pinned),
+          createdAt: typeof cd.createdAt === 'string' ? cd.createdAt : ''
+        };
+      }).filter(cd => cd.date);
       return {
         schemaVersion: CURRENT_SCHEMA_VERSION,
         // 保留原始时间戳：覆盖它会让 adoptDirData 的新旧比较永远判定"文件更新"，从而静默覆盖用户数据
@@ -1537,7 +1686,8 @@
         },
         categories,
         tasks,
-        trash
+        trash,
+        countdowns
       };
     }
 
@@ -2427,6 +2577,7 @@
       trash.splice(idx, 1);
       saveState();
       renderTrashList();
+      renderStatsAndSidebar();
       showToast('已彻底删除');
     }
 
@@ -2440,6 +2591,7 @@
         appState.data.trash = [];
         saveState();
         renderTrashList();
+        renderStatsAndSidebar();
         showToast('回收站已清空');
       });
     }
@@ -2696,84 +2848,32 @@
         return;
       }
 
+      // 限宽纵向行排布：科研脉络本身向右生长，横向宽度严格控制在单屏可读范围内（<= MAX_ROW_W），
+      // 宽课题独占一行纵向往下铺，只有都很窄的小课题才自动并排同一行，滚轮上下浏览清晰不拥挤
       const vp = document.getElementById('canvasViewport');
-      const vpW = Math.max(720, (vp && vp.clientWidth) || 1280);
-      const vpH = Math.max(480, (vp && vp.clientHeight) || 760);
-      const maxCandCols = Math.min(blocks.length, 4);
+      const vpW = Math.max(960, (vp && vp.clientWidth) || 1280);
+      const MAX_ROW_W = Math.max(1100, Math.round(vpW * 1.15));
 
-      // 模拟给定列数 cols 下的瀑布流 + 横向区间紧贴排布，返回每个块的 { tx, ty } 与最终视口适配缩放比 scale
-      const simulateMasonryLayout = (cols) => {
-        const colHeights = new Array(cols).fill(START_Y);
-        const placements = [];
+      let cursorX = START_X;
+      let cursorY = START_Y;
+      let rowMaxH = 0;
 
-        blocks.forEach((b, idx) => {
-          // 优先放入当前最矮的列（瀑布流最短列优先），消除高矮不一导致的参差断层
-          let targetCol = 0;
-          for (let c = 1; c < cols; c++) {
-            if (colHeights[c] < colHeights[targetCol] - 12) {
-              targetCol = c;
-            }
-          }
-          const ty = colHeights[targetCol];
-          colHeights[targetCol] = ty + b.height + CAT_GAP_Y;
-          placements.push({ block: b, col: targetCol, ty, tx: START_X });
-        });
-
-        // 按列从左到右计算每个块的紧凑横向坐标 tx：只需避开左侧列中【垂直方向有交集】的块即可！
-        for (let c = 0; c < cols; c++) {
-          const inCol = placements.filter(p => p.col === c);
-          inCol.forEach(p => {
-            if (c === 0) {
-              p.tx = START_X;
-            } else {
-              const pTop = p.ty - 16;
-              const pBot = p.ty + p.block.height + 16;
-              let minAllowedLeft = START_X;
-              placements.forEach(leftP => {
-                if (leftP.col < c) {
-                  const lTop = leftP.ty;
-                  const lBot = leftP.ty + leftP.block.height;
-                  // 若垂直区间存在重叠，则必须排在该左侧块的右边 + CAT_GAP_X
-                  if (Math.min(pBot, lBot) > Math.max(pTop, lTop)) {
-                    const reqX = leftP.tx + leftP.block.width + CAT_GAP_X;
-                    if (reqX > minAllowedLeft) minAllowedLeft = reqX;
-                  }
-                }
-              });
-              // 同时保证至少比上一列最左基线略偏右，维持视觉列感
-              const colFloorX = START_X + c * (HUB_W + CAT_GAP_X);
-              p.tx = Math.max(minAllowedLeft, colFloorX);
-            }
-          });
+      blocks.forEach((b, idx) => {
+        if (idx > 0 && (cursorX - START_X) + b.width > MAX_ROW_W) {
+          cursorX = START_X;
+          cursorY += rowMaxH + CAT_GAP_Y + 12;
+          rowMaxH = 0;
         }
-
-        const maxRight = Math.max(...placements.map(p => p.tx + p.block.width));
-        const maxBottom = Math.max(...placements.map(p => p.ty + p.block.height));
-        const totalW = Math.max(240, maxRight - START_X);
-        const totalH = Math.max(180, maxBottom - START_Y);
-        const scale = Math.min(vpW / (totalW + 48), vpH / (totalH + 48));
-        return { placements, scale, totalW, totalH };
-      };
-
-      let bestResult = null;
-      for (let cols = 2; cols <= maxCandCols; cols++) {
-        const cand = simulateMasonryLayout(cols);
-        if (!bestResult || cand.scale > bestResult.scale + 0.005) {
-          bestResult = cand;
+        const dx = Math.round(cursorX - b.left);
+        const dy = Math.round(cursorY - b.top);
+        if (dx !== 0 || dy !== 0) {
+          b.cat.hubX += dx;
+          b.cat.hubY += dy;
+          b.nodes.forEach(t => { t.x += dx; t.y += dy; });
         }
-      }
-
-      if (bestResult) {
-        bestResult.placements.forEach(p => {
-          const dx = Math.round(p.tx - p.block.left);
-          const dy = Math.round(p.ty - p.block.top);
-          if (dx !== 0 || dy !== 0) {
-            p.block.cat.hubX += dx;
-            p.block.cat.hubY += dy;
-            p.block.nodes.forEach(t => { t.x += dx; t.y += dy; });
-          }
-        });
-      }
+        cursorX += b.width + CAT_GAP_X;
+        if (b.height > rowMaxH) rowMaxH = b.height;
+      });
     }
 
     // 仅在检测到旧版未排版数据（缺失有效坐标）时才整理，避免每次打开重算坐标触发同步误报
@@ -3238,31 +3338,56 @@
       appState.currentView = view;
       const graphSec = document.getElementById('graphSection');
       const recentSec = document.getElementById('recentSection');
+      const pomoSec = document.getElementById('pomodoroSection');
+      const cdSec = document.getElementById('countdownSection');
       const btnSplit = document.getElementById('viewBtnSplit');
       const btnGraph = document.getElementById('viewBtnGraph');
       const btnRecent = document.getElementById('viewBtnRecent');
+      const btnPomo = document.getElementById('viewBtnPomodoro');
+      const btnCd = document.getElementById('viewBtnCountdown');
+      const mRecent = document.getElementById('mViewBtnRecent');
+      const mPomo = document.getElementById('mViewBtnPomodoro');
+      const mCd = document.getElementById('mViewBtnCountdown');
 
-      [btnSplit, btnGraph, btnRecent].forEach(b => {
-        if (b) b.className = 'px-3.5 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white';
+      const idleCls = 'px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white';
+      const activeCls = 'px-3 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm';
+      [btnSplit, btnGraph, btnRecent, btnPomo, btnCd].forEach(b => { if (b) b.className = idleCls; });
+      [mRecent, mPomo, mCd].forEach(b => { if (b) b.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition'; });
+
+      [graphSec, recentSec, pomoSec, cdSec].forEach(sec => {
+        if (sec) { sec.classList.add('hidden'); sec.classList.remove('flex'); }
       });
 
       if (view === 'split') {
-        btnSplit.className = 'px-3.5 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm';
-        graphSec.classList.remove('hidden');
-        recentSec.classList.remove('hidden');
-        const splitWidthCls = (appState.boardMode === 'quadrant' && appState.listTab !== 'week')
-          ? 'w-full lg:w-[460px] xl:w-[500px]'
-          : 'w-full lg:w-80 xl:w-96';
-        recentSec.className = splitWidthCls + ' bg-slate-50/80 flex flex-col h-full overflow-hidden shrink-0 border-r border-slate-200/90';
+        if (btnSplit) btnSplit.className = activeCls;
+        if (graphSec) { graphSec.classList.remove('hidden'); graphSec.classList.add('flex'); }
+        if (recentSec) {
+          recentSec.classList.remove('hidden');
+          const splitWidthCls = (appState.boardMode === 'quadrant' && appState.listTab !== 'week')
+            ? 'w-full lg:w-[460px] xl:w-[500px]'
+            : 'w-full lg:w-80 xl:w-96';
+          recentSec.className = splitWidthCls + ' bg-slate-50/80 flex flex-col h-full overflow-hidden shrink-0 border-r border-slate-200/90';
+        }
       } else if (view === 'graph') {
-        btnGraph.className = 'px-3.5 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm';
-        graphSec.classList.remove('hidden');
-        recentSec.classList.add('hidden');
+        if (btnGraph) btnGraph.className = activeCls;
+        if (graphSec) { graphSec.classList.remove('hidden'); graphSec.classList.add('flex'); }
       } else if (view === 'recent') {
-        btnRecent.className = 'px-3.5 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm';
-        graphSec.classList.add('hidden');
-        recentSec.classList.remove('hidden');
-        recentSec.className = 'flex-1 bg-slate-50/80 flex flex-col h-full overflow-hidden border-r border-slate-200/90';
+        if (btnRecent) btnRecent.className = activeCls;
+        if (mRecent) mRecent.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition';
+        if (recentSec) {
+          recentSec.classList.remove('hidden');
+          recentSec.className = 'flex-1 bg-slate-50/80 flex flex-col h-full overflow-hidden border-r border-slate-200/90';
+        }
+      } else if (view === 'pomodoro') {
+        if (btnPomo) btnPomo.className = activeCls;
+        if (mPomo) mPomo.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition';
+        if (pomoSec) { pomoSec.classList.remove('hidden'); pomoSec.classList.add('flex'); }
+        renderPomodoroView();
+      } else if (view === 'countdown') {
+        if (btnCd) btnCd.className = activeCls;
+        if (mCd) mCd.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition';
+        if (cdSec) { cdSec.classList.remove('hidden'); cdSec.classList.add('flex'); }
+        renderCountdownView();
       }
       renderAll();
     }
@@ -3545,20 +3670,34 @@
       const vpW = Math.max(360, vp.clientWidth || 960);
       const vpH = Math.max(280, vp.clientHeight || 640);
 
-      const pad = autoScale ? 52 : 36;
+      const pad = autoScale ? 56 : 44;
       const contentW = Math.max(240, maxX - minX + pad);
       const contentH = Math.max(180, maxY - minY + pad);
-      const fit = Math.min(vpW / contentW, vpH / contentH);
-      // 2K 屏友好：默认切换/整理时保底缩放不低于 0.78（78%），保证全部主题下卡片文字依然清晰易读；
-      // 仅当用户主动点击『适应视图』按钮 (autoScale=true) 时允许缩至 0.65 全景俯瞰。
-      const minZoomFloor = autoScale ? 0.65 : 0.78;
-      appState.zoom = Math.max(minZoomFloor, Math.min(1.0, Math.round(fit * 100) / 100));
+      const fitW = vpW / contentW;
+      const fitH = vpH / contentH;
+      const fitAll = Math.min(fitW, fitH);
+      const isOverviewMulti = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && cats.length >= 2;
 
-      // 单分类与全部主题统一走水平 + 垂直居中
-      const graphMidX = (minX + maxX) / 2;
-      const graphMidY = (minY + maxY) / 2;
-      appState.panOffsetX = Math.round(vpW / 2 - graphMidX * appState.zoom);
-      appState.panOffsetY = Math.round(vpH / 2 - graphMidY * appState.zoom);
+      if (autoScale) {
+        // 点击『适应视图』：下限放宽到 25%，保证无论课题多少都能 100% 装入当前视口不裁切
+        appState.zoom = Math.max(0.25, Math.min(1.0, Math.round(fitAll * 100) / 100));
+        const graphMidX = (minX + maxX) / 2;
+        const graphMidY = (minY + maxY) / 2;
+        appState.panOffsetX = Math.round(vpW / 2 - graphMidX * appState.zoom);
+        appState.panOffsetY = Math.round(vpH / 2 - graphMidY * appState.zoom);
+      } else if (isOverviewMulti && contentH * Math.min(1.0, fitW) > vpH) {
+        // 全部主题总览纵向较长时：按「适配宽度 + 顶部对齐」展示，横向一眼看完、滚轮往下清晰浏览
+        appState.zoom = Math.max(0.55, Math.min(1.0, Math.round(fitW * 100) / 100));
+        const graphMidX = (minX + maxX) / 2;
+        appState.panOffsetX = Math.round(vpW / 2 - graphMidX * appState.zoom);
+        appState.panOffsetY = Math.round(32 - minY * appState.zoom);
+      } else {
+        appState.zoom = Math.max(0.4, Math.min(1.0, Math.round(fitAll * 100) / 100));
+        const graphMidX = (minX + maxX) / 2;
+        const graphMidY = (minY + maxY) / 2;
+        appState.panOffsetX = Math.round(vpW / 2 - graphMidX * appState.zoom);
+        appState.panOffsetY = Math.round(vpH / 2 - graphMidY * appState.zoom);
+      }
       vp.scrollLeft = 0;
       vp.scrollTop = 0;
       applyStageTransform();
@@ -4483,6 +4622,8 @@
       renderRecentTasksList();
       renderInspector();
       syncBoardModeButtons();
+      if (appState.currentView === 'countdown') renderCountdownView();
+      if (appState.currentView === 'pomodoro') renderPomodoroView();
     }
 
     // 看板切换按钮的高亮状态
@@ -5113,7 +5254,7 @@
     // Keyboard shortcuts (Ctrl+Enter 新建记录, Esc 关闭弹窗；Tab 交还浏览器)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        const anyModalOpen = ['newTaskModal', 'categoryModal', 'confirmActionModal', 'trashModal', 'archiveModal', 'ghSyncModal', 'deleteCatModal'].some(id => {
+        const anyModalOpen = ['newTaskModal', 'categoryModal', 'confirmActionModal', 'trashModal', 'archiveModal', 'ghSyncModal', 'countdownModal', 'deleteCatModal'].some(id => {
           const el = document.getElementById(id);
           return el && !el.classList.contains('hidden');
         });
@@ -5123,6 +5264,7 @@
         closeTrashModal();
         closeArchiveModal();
         closeGitHubSyncModal();
+        closeCountdownModal();
         closeDeleteCatModal();
         if (!anyModalOpen && !appState.ctxMenuOpen && appState.inspectorOpen) {
           closeInspector();
@@ -5140,7 +5282,7 @@
     // 而不是绕视口中心缩放、把正在看的东西甩出去。不传坐标时退回视口中心。
     function zoomCanvas(delta, anchorClientX, anchorClientY) {
       const oldZ = appState.zoom || 1.0;
-      const newZ = Math.max(0.5, Math.min(1.5, Math.round((oldZ + delta) * 10) / 10));
+      const newZ = Math.max(0.25, Math.min(1.5, Math.round((oldZ + delta) * 10) / 10));
       if (newZ === oldZ) return;
       const vp = document.getElementById('canvasViewport');
       const rect = vp ? vp.getBoundingClientRect() : null;
@@ -5854,6 +5996,7 @@
       if (!data || typeof data !== 'object') return false;
       if (Array.isArray(data.tasks) && data.tasks.length > 0) return true;
       if (Array.isArray(data.trash) && data.trash.length > 0) return true;
+      if (Array.isArray(data.countdowns) && data.countdowns.length > 0) return true;
       const cats = Array.isArray(data.categories) ? data.categories : [];
       if (cats.length > 2) return true;
       if (cats.some(c => c && c.archived)) return true;
@@ -6512,7 +6655,15 @@
         title: tr.title,
         deletedAt: tr.deletedAt || ''
       }));
-      return JSON.stringify({ c: cats, t: tasks, tr: trash });
+      const cds = (data.countdowns || []).map(cd => ({
+        id: cd.id,
+        title: cd.title,
+        date: cd.date,
+        color: cd.color,
+        note: cd.note || '',
+        pinned: Boolean(cd.pinned)
+      }));
+      return JSON.stringify({ c: cats, t: tasks, tr: trash, cd: cds });
     }
 
     async function adoptDirData(dir) {
@@ -7274,6 +7425,358 @@
       if (isGitHubSyncEnabled()) {
         pullFromGitHub(true);
       }
+    }
+
+    // =========================================================================
+    // 独立功能 1：🍅 科研专注番茄钟（后台持续计时 + 标签栏倒计时 + 柔和合成铃声）
+    // =========================================================================
+    const POMO_STATS_KEY = 'lly_pomodoro_stats_v1';
+    const POMO_RING_CIRC = 2 * Math.PI * 98; // 615.752
+    const pomoState = {
+      durationSec: 25 * 60,
+      remainingSec: 25 * 60,
+      phaseLabel: '深度专注',
+      running: false,
+      muted: false,
+      note: '',
+      timerId: null,
+      endTimestamp: 0
+    };
+
+    function loadPomodoroTodayStats() {
+      const today = getOffsetISODate(0);
+      try {
+        const raw = localStorage.getItem(POMO_STATS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.day === today) {
+            return { day: today, count: Number(parsed.count) || 0, minutes: Number(parsed.minutes) || 0 };
+          }
+        }
+      } catch (e) {}
+      return { day: today, count: 0, minutes: 0 };
+    }
+
+    function recordPomodoroCompletion(mins) {
+      const stats = loadPomodoroTodayStats();
+      stats.count += 1;
+      stats.minutes += Math.max(1, Math.round(mins));
+      try { localStorage.setItem(POMO_STATS_KEY, JSON.stringify(stats)); } catch (e) {}
+    }
+
+    function formatMMSS(sec) {
+      const s = Math.max(0, Math.round(sec));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+    }
+
+    function playPomodoroChime() {
+      if (pomoState.muted) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ac = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99]; // C5 - E5 - G5 soft chord
+        notes.forEach((freq, idx) => {
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ac.currentTime + idx * 0.16);
+          gain.gain.setValueAtTime(0.001, ac.currentTime + idx * 0.16);
+          gain.gain.exponentialRampToValueAtTime(0.18, ac.currentTime + idx * 0.16 + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + idx * 0.16 + 0.9);
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          osc.start(ac.currentTime + idx * 0.16);
+          osc.stop(ac.currentTime + idx * 0.16 + 0.95);
+        });
+      } catch (e) {}
+    }
+
+    function setPomodoroPreset(minutes, label) {
+      if (pomoState.timerId) { clearInterval(pomoState.timerId); pomoState.timerId = null; }
+      pomoState.running = false;
+      pomoState.durationSec = Math.max(60, Math.round(minutes) * 60);
+      pomoState.remainingSec = pomoState.durationSec;
+      pomoState.phaseLabel = label || '专注时间';
+      document.title = 'LLY 科研脉络';
+      renderPomodoroView();
+    }
+
+    function applyCustomPomodoro() {
+      const inp = document.getElementById('pomoCustomMinutes');
+      const val = inp ? parseInt(inp.value, 10) : 25;
+      if (!Number.isFinite(val) || val < 1 || val > 180) {
+        showToast('请输入 1～180 之间的分钟数');
+        return;
+      }
+      setPomodoroPreset(val, `自定义 ${val} 分钟`);
+    }
+
+    function updatePomodoroNote(val) {
+      pomoState.note = String(val || '');
+    }
+
+    function togglePomodoroMute() {
+      pomoState.muted = !pomoState.muted;
+      renderPomodoroView();
+      showToast(pomoState.muted ? '🔇 已静音到点提示音' : '🔊 已开启到点提示音');
+    }
+
+    function togglePomodoroTimer() {
+      if (pomoState.running) {
+        if (pomoState.timerId) { clearInterval(pomoState.timerId); pomoState.timerId = null; }
+        pomoState.running = false;
+        document.title = 'LLY 科研脉络';
+        renderPomodoroView();
+        return;
+      }
+      if (pomoState.remainingSec <= 0) {
+        pomoState.remainingSec = pomoState.durationSec;
+      }
+      pomoState.running = true;
+      pomoState.endTimestamp = Date.now() + pomoState.remainingSec * 1000;
+      if (pomoState.timerId) clearInterval(pomoState.timerId);
+      pomoState.timerId = setInterval(() => {
+        const left = Math.ceil((pomoState.endTimestamp - Date.now()) / 1000);
+        if (left <= 0) {
+          clearInterval(pomoState.timerId);
+          pomoState.timerId = null;
+          pomoState.running = false;
+          pomoState.remainingSec = 0;
+          document.title = '✅ 专注结束 · LLY 科研脉络';
+          playPomodoroChime();
+          const isBreak = pomoState.phaseLabel.includes('休');
+          if (!isBreak) {
+            recordPomodoroCompletion(pomoState.durationSec / 60);
+          }
+          renderPomodoroView();
+          showToast(isBreak ? '⏰ 休息结束，准备开始下一轮科研！' : '🎉 恭喜完成一个番茄钟！起来活动一下吧');
+          return;
+        }
+        pomoState.remainingSec = left;
+        document.title = `${formatMMSS(left)} · LLY 科研脉络`;
+        renderPomodoroView();
+      }, 500);
+      document.title = `${formatMMSS(pomoState.remainingSec)} · LLY 科研脉络`;
+      renderPomodoroView();
+    }
+
+    function resetPomodoroTimer() {
+      if (pomoState.timerId) { clearInterval(pomoState.timerId); pomoState.timerId = null; }
+      pomoState.running = false;
+      pomoState.remainingSec = pomoState.durationSec;
+      document.title = 'LLY 科研脉络';
+      renderPomodoroView();
+    }
+
+    function renderPomodoroView() {
+      const timeEl = document.getElementById('pomoTimeDisplay');
+      const phaseEl = document.getElementById('pomoPhaseLabel');
+      const subEl = document.getElementById('pomoStatusSubtext');
+      const ringEl = document.getElementById('pomoProgressCircle');
+      const btnEl = document.getElementById('pomoStartPauseBtn');
+      const muteEl = document.getElementById('pomoMuteBtn');
+      const cntEl = document.getElementById('pomoTodayCount');
+      const minEl = document.getElementById('pomoTodayMinutes');
+      const navBtn = document.getElementById('viewBtnPomodoro');
+      const mNavBtn = document.getElementById('mViewBtnPomodoro');
+
+      const formatted = formatMMSS(pomoState.remainingSec);
+      if (timeEl) timeEl.textContent = formatted;
+      if (phaseEl) phaseEl.textContent = pomoState.phaseLabel;
+      if (subEl) subEl.textContent = pomoState.running ? '专注进行中…' : (pomoState.remainingSec === 0 ? '已完成本轮' : '准备就绪');
+      if (ringEl) {
+        const ratio = pomoState.durationSec > 0 ? (pomoState.remainingSec / pomoState.durationSec) : 0;
+        const offset = POMO_RING_CIRC * (1 - Math.max(0, Math.min(1, ratio)));
+        ringEl.setAttribute('stroke-dashoffset', String(offset.toFixed(2)));
+        ringEl.setAttribute('stroke', pomoState.phaseLabel.includes('休') ? '#10b981' : '#4f46e5');
+      }
+      if (btnEl) {
+        btnEl.textContent = pomoState.running ? '⏸ 暂停' : (pomoState.remainingSec < pomoState.durationSec && pomoState.remainingSec > 0 ? '▶ 继续专注' : '▶ 开始专注');
+      }
+      if (muteEl) muteEl.textContent = pomoState.muted ? '🔇' : '🔊';
+
+      const stats = loadPomodoroTodayStats();
+      if (cntEl) cntEl.textContent = String(stats.count);
+      if (minEl) minEl.textContent = stats.minutes + ' 分钟';
+
+      if (navBtn) navBtn.textContent = pomoState.running ? `🍅 ${formatted}` : '🍅 番茄钟';
+      if (mNavBtn) mNavBtn.textContent = pomoState.running ? `🍅 ${formatted}` : '🍅 番茄钟';
+
+      const mins = Math.round(pomoState.durationSec / 60);
+      [25, 45, 5, 15].forEach(p => {
+        const b = document.getElementById('pomoPreset' + p);
+        if (!b) return;
+        b.className = (mins === p)
+          ? 'px-3.5 py-1.5 rounded-xl text-[13px] font-semibold bg-indigo-600 text-white shadow-sm transition'
+          : 'btn-soft px-3.5 py-1.5 rounded-xl text-[13px] font-medium text-slate-700';
+      });
+    }
+
+    // =========================================================================
+    // 独立功能 2：📅 重要日期倒计日（独立存储于 appState.data.countdowns，自动双端同步）
+    // =========================================================================
+    let editingCountdownId = null;
+
+    function ensureCountdowns() {
+      if (!Array.isArray(appState.data.countdowns)) appState.data.countdowns = [];
+      return appState.data.countdowns;
+    }
+
+    function openCountdownModal(cdId) {
+      const m = document.getElementById('countdownModal');
+      if (!m) return;
+      const list = ensureCountdowns();
+      const existing = cdId ? list.find(c => c.id === cdId) : null;
+      editingCountdownId = existing ? existing.id : null;
+      document.getElementById('countdownModalTitle').textContent = existing ? '📅 编辑倒计日' : '📅 新增重要倒计日';
+      document.getElementById('inputCdTitle').value = existing ? existing.title : '';
+      document.getElementById('inputCdDate').value = existing ? existing.date : getOffsetISODate(14);
+      document.getElementById('inputCdColor').value = existing ? existing.color : 'rose';
+      document.getElementById('inputCdNote').value = existing ? (existing.note || '') : '';
+      document.getElementById('inputCdPinned').checked = existing ? Boolean(existing.pinned) : false;
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      setTimeout(() => {
+        const inp = document.getElementById('inputCdTitle');
+        if (inp) { inp.focus(); inp.select(); }
+      }, 20);
+    }
+
+    function closeCountdownModal() {
+      const m = document.getElementById('countdownModal');
+      if (!m) return;
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+      editingCountdownId = null;
+    }
+
+    function submitCountdownForm() {
+      const title = document.getElementById('inputCdTitle').value.trim();
+      const date = document.getElementById('inputCdDate').value.trim();
+      const color = document.getElementById('inputCdColor').value || 'indigo';
+      const note = document.getElementById('inputCdNote').value.trim();
+      const pinned = document.getElementById('inputCdPinned').checked;
+      if (!title) { showToast('请填写事件名称'); return; }
+      if (!isValidISODate(date)) { showToast('请选择有效的目标日期'); return; }
+
+      const list = ensureCountdowns();
+      if (editingCountdownId) {
+        const target = list.find(c => c.id === editingCountdownId);
+        if (target) {
+          target.title = title;
+          target.date = date;
+          target.color = COLOR_PALETTE[color] ? color : 'indigo';
+          target.note = note;
+          target.pinned = pinned;
+        }
+        showToast('✓ 已更新倒计日');
+      } else {
+        list.push({
+          id: 'cd-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          title,
+          date,
+          color: COLOR_PALETTE[color] ? color : 'indigo',
+          note,
+          pinned,
+          createdAt: new Date().toISOString()
+        });
+        showToast('📅 已添加重要倒计日');
+      }
+      saveState();
+      closeCountdownModal();
+      renderCountdownView();
+    }
+
+    function toggleCountdownPin(cdId) {
+      const cd = ensureCountdowns().find(c => c.id === cdId);
+      if (!cd) return;
+      cd.pinned = !cd.pinned;
+      saveState();
+      renderCountdownView();
+    }
+
+    function deleteCountdownItem(cdId) {
+      const list = ensureCountdowns();
+      const cd = list.find(c => c.id === cdId);
+      if (!cd) return;
+      openConfirmModal('删除这条倒计日？', `确定要删除「${cd.title}（${cd.date}）」吗？`, () => {
+        appState.data.countdowns = ensureCountdowns().filter(c => c.id !== cdId);
+        saveState();
+        renderCountdownView();
+        showToast('已删除倒计日');
+      });
+    }
+
+    function computeCountdownDiffDays(isoDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const parts = isoDate.split('-').map(Number);
+      const target = new Date(parts[0], parts[1] - 1, parts[2]);
+      return Math.round((target - today) / (1000 * 3600 * 24));
+    }
+
+    function renderCountdownView() {
+      const container = document.getElementById('countdownListContainer');
+      if (!container) return;
+      const list = ensureCountdowns().slice().sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        const da = computeCountdownDiffDays(a.date);
+        const db = computeCountdownDiffDays(b.date);
+        const pastA = da < 0;
+        const pastB = db < 0;
+        if (pastA !== pastB) return pastA ? 1 : -1;
+        return pastA ? (db - da) : (da - db);
+      });
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center space-y-2">
+            <div class="text-3xl">📅</div>
+            <div class="text-[15px] font-bold text-slate-700">还没有重要日期倒计日</div>
+            <p class="text-[13px] text-slate-400">可以记下论文截稿、开题答辩、基金提交、假期等重要节点，点右上角「+ 新增倒计日」开始。</p>
+          </div>
+        `;
+        return;
+      }
+
+      const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      container.innerHTML = list.map(cd => {
+        const diff = computeCountdownDiffDays(cd.date);
+        const parts = cd.date.split('-').map(Number);
+        const wName = weekDays[new Date(parts[0], parts[1] - 1, parts[2]).getDay()];
+        const palette = COLOR_PALETTE[cd.color] || COLOR_PALETTE.indigo;
+        const isPast = diff < 0;
+        const isToday = diff === 0;
+        const bigNumHtml = isToday
+          ? `<div class="text-[28px] font-bold text-amber-600 leading-none">🔥 今天</div>`
+          : (isPast
+              ? `<div class="flex items-baseline gap-1 text-slate-400"><span class="text-[12px]">已过去</span><span class="text-[30px] font-bold tabular-nums leading-none">${Math.abs(diff)}</span><span class="text-[12px]">天</span></div>`
+              : `<div class="flex items-baseline gap-1 ${diff <= 7 ? 'text-rose-600' : 'text-slate-900'}"><span class="text-[12px] text-slate-500">还有</span><span class="text-[32px] font-bold tabular-nums leading-none">${diff}</span><span class="text-[12px] text-slate-500">天</span></div>`);
+
+        return `
+          <div class="bg-white rounded-2xl border-2 ${isPast ? 'border-slate-200 opacity-75' : palette.border} p-4 shadow-sm flex flex-col justify-between gap-3 transition hover:shadow-md">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  ${cd.pinned ? '<span class="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold shrink-0">📌 置顶</span>' : ''}
+                  <h3 class="text-[15px] font-bold text-slate-800 truncate" title="${escapeAttr(cd.title)}">${escapeHtml(cd.title)}</h3>
+                </div>
+                <div class="text-[12px] text-slate-400 mt-1">${escapeHtml(cd.date)} · ${wName}</div>
+              </div>
+              <div class="flex items-center gap-0.5 shrink-0">
+                <button type="button" onclick="toggleCountdownPin('${cd.id}')" title="${cd.pinned ? '取消置顶' : '置顶'}" class="p-1 rounded-lg hover:bg-amber-50 text-[12px] ${cd.pinned ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'}">📌</button>
+                <button type="button" onclick="openCountdownModal('${cd.id}')" title="编辑" class="p-1 rounded-lg hover:bg-indigo-50 text-[12px] text-slate-400 hover:text-indigo-600">✎</button>
+                <button type="button" onclick="deleteCountdownItem('${cd.id}')" title="删除" class="p-1 rounded-lg hover:bg-rose-50 text-[12px] text-slate-400 hover:text-rose-600">✕</button>
+              </div>
+            </div>
+            <div class="py-1">${bigNumHtml}</div>
+            ${cd.note ? `<div class="text-[12px] text-slate-500 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 line-clamp-2">${escapeHtml(cd.note)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
     }
 
     function escapeHtml(str) {
