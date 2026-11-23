@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -572,7 +572,7 @@
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     /* ===== 侧栏分类拖拽排序 ===== */
     .cat-sort-item { cursor: grab; }
-    .cat-sort-item.dragging { opacity: 0.4; }
+    .cat-sort-item.dragging > button { border-color: #6366f1 !important; background-color: #eef2ff !important; box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.18); }
     .cat-drop-before { box-shadow: inset 0 3px 0 0 #4f46e5 !important; border-top-color: #4f46e5 !important; }
     .cat-drop-after { box-shadow: inset 0 -3px 0 0 #4f46e5 !important; border-bottom-color: #4f46e5 !important; }
     /* ===== 第四轮新增（回收站 / 删分类弹窗 / 看板切换） ===== */
@@ -1236,9 +1236,14 @@
       if (isValidISODate(s)) return s;
       if (s.includes('今天') || s.includes('今日')) return getOffsetISODate(0);
       if (s.includes('明天') || s.includes('明日')) return getOffsetISODate(1);
-      if (s.includes('本周四') || s.includes('本周五')) return getOffsetISODate(2);
-      if (s.includes('本周')) return getOffsetISODate(3);
-      if (s.includes('下周')) return getOffsetISODate(7);
+      const weekdayMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 7 };
+      const todayDow = new Date().getDay() || 7; // 1=Mon..7=Sun
+      for (const [label, targetDow] of Object.entries(weekdayMap)) {
+        if (s.includes('下' + label)) return getOffsetISODate(7 - todayDow + targetDow);
+        if (s.includes('本' + label) || s.includes(label)) return getOffsetISODate(targetDow - todayDow);
+      }
+      if (s.includes('本周')) return getOffsetISODate(Math.max(0, 5 - todayDow));
+      if (s.includes('下周')) return getOffsetISODate(7 - todayDow + 1);
       return '';
     }
 
@@ -1446,7 +1451,8 @@
       // 分类 id：先净化，再记下「旧 id → 新 id」，任务里的 categoryId 要跟着改
       const usedCatIds = new Set();
       const catIdMap = new Map();
-      const categories = Array.isArray(rawParsed.categories) ? rawParsed.categories.map((c, idx) => {
+      const rawCats = Array.isArray(rawParsed.categories) ? rawParsed.categories : (Array.isArray(rawParsed.cats) ? rawParsed.cats : []);
+      const categories = rawCats.map((c, idx) => {
         const oldId = c && typeof c.id === 'string' ? c.id : '';
         const newId = sanitizeId(oldId, 'cat-' + idx, usedCatIds);
         if (oldId && oldId !== newId) catIdMap.set(oldId, newId);
@@ -1463,7 +1469,7 @@
           archived: Boolean(c.archived),
           archivedAt: typeof c.archivedAt === 'string' ? c.archivedAt : ''
         };
-      }) : [];
+      });
 
       // 分类顺序：显式 order 优先；老数据没有 order 时按数组原顺序补齐
       categories.sort((a, b) => a.order - b.order);
@@ -1693,9 +1699,10 @@
       const t = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       let dot = 'bg-emerald-500';
       let text = '';
-      if (kind === 'pending') { dot = 'bg-amber-400'; text = '待写入「' + (appState.dataDir ? appState.dataDir.name : '') + '」(停手后自动保存)'; }
-      else if (kind === 'saving') { dot = 'bg-amber-400'; text = '正在写入「' + (appState.dataDir ? appState.dataDir.name : '') + '」'; }
-      else if (kind === 'ok') { text = '已写入「' + appState.dataDir.name + '」'; }
+      const safeDirName = escapeHtml(appState.dataDir ? appState.dataDir.name : '');
+      if (kind === 'pending') { dot = 'bg-amber-400'; text = '待写入「' + safeDirName + '」(停手后自动保存)'; }
+      else if (kind === 'saving') { dot = 'bg-amber-400'; text = '正在写入「' + safeDirName + '」'; }
+      else if (kind === 'ok') { text = '已写入「' + safeDirName + '」'; }
       else if (kind === 'readerror') { dot = 'bg-rose-500'; text = '数据文件读不出来 · 已暂停写入'; }
       else if (kind === 'fail') { dot = 'bg-rose-500'; text = '写入失败 · 点此重新授权'; }
       else if (kind === 'local') { text = '已存到浏览器（未关联文件夹）'; }
@@ -2233,7 +2240,9 @@
         snap.trashedCatTarget = cat ? (cat.target || '') : (target.trashedCatTarget || '');
         snap.trashedCatColor = cat ? cat.color : (target.trashedCatColor || 'indigo');
         snap.trashedWithCat = Boolean(trashedWithCat);
-        snap._originalDeps = getTaskDeps(target).slice();
+        snap._originalDeps = (Array.isArray(target._originalDepsBeforeRelay) && target._originalDepsBeforeRelay.length)
+          ? target._originalDepsBeforeRelay.slice()
+          : getTaskDeps(target).slice();
         const survivingUps = findSurvivingUpstreamIds(target.id, removed);
         // 记录所有直接以 target 为前置的下游（包含同批被删和存活的，以便乱序恢复也能还原）
         const directDowns = getDownstreamTasks(target.id);
@@ -2288,12 +2297,9 @@
       showToast('🗑 已移到回收站（可在回收站里无损恢复上下游脉络）');
     }
 
-    // 恢复单条记录的核心逻辑（支持自动找回/重建原分类、防坐标重叠、无损接回上下游连线）
+    // 恢复单条记录的核心逻辑（优先按原分类 ID 匹配或重建，避免同名新分类误归属）
     function restoreSingleTrashItemCore(item) {
       let cat = getCategoryById(item.categoryId);
-      if (!cat && item.trashedCatName) {
-        cat = appState.data.categories.find(c => c.name === item.trashedCatName) || null;
-      }
       if (!cat && item.trashedWithCat && item.trashedCatName) {
         const usedCatIds = new Set(appState.data.categories.map(c => c.id));
         const restoredCatId = sanitizeId(item.categoryId, 'cat-restored', usedCatIds);
@@ -2304,7 +2310,9 @@
           color: COLOR_PALETTE[item.trashedCatColor] ? item.trashedCatColor : 'indigo',
           hubX: 80,
           hubY: 120 + appState.data.categories.length * 280,
-          order: appState.data.categories.length
+          order: appState.data.categories.length,
+          archived: false,
+          archivedAt: ''
         };
         appState.data.categories.push(cat);
       }
@@ -2386,6 +2394,7 @@
       showToast('↩ 已从回收站恢复（上下游连线已自动还原）');
     }
 
+    // 事务式批量恢复：先全部恢复节点与分类，再统一重建原始依赖，杜绝链式删除后恢复丢连线
     function restoreAllTrash() {
       const trash = ensureTrash();
       if (trash.length === 0) {
@@ -2394,11 +2403,21 @@
       }
       const items = trash.splice(0, trash.length);
       items.forEach(item => restoreSingleTrashItemCore(item));
+      // 第二阶段：所有节点都已回到 tasks 后，再次补全跨节点原始依赖
+      items.forEach(item => {
+        const origDeps = Array.isArray(item._originalDeps) ? item._originalDeps : [];
+        origDeps.forEach(d => {
+          if (d && d !== item.id && getTaskById(d) && !item.deps.includes(d) && !wouldCreateCycle(item.id, d)) {
+            item.deps.push(d);
+          }
+        });
+        item.parentId = item.deps[0] || null;
+      });
       if (items.length > 0) appState.selectedTaskId = items[items.length - 1].id;
       saveState();
       renderAll();
       renderTrashList();
-      showToast(`↩ 已全部恢复 ${items.length} 条记录`);
+      showToast(`↩ 已全部恢复 ${items.length} 条记录（上下游脉络已完整还原）`);
     }
 
     function purgeTaskFromTrash(trashId) {
@@ -2500,7 +2519,7 @@
       const tagSet = new Set();
       affected.forEach(t => { if (t.stage && t.stage.trim()) tagSet.add(t.stage.trim()); });
       const tags = Array.from(tagSet);
-      const others = appState.data.categories.filter(c => c.id !== catId);
+      const others = appState.data.categories.filter(c => c.id !== catId && !c.archived);
 
       pendingCatDelete = { catId, tags, affectedCount: affected.length, option: 'keep', targetCatId: others[0] ? others[0].id : null };
 
@@ -2915,6 +2934,10 @@
     function archiveCategory(catId) {
       const cat = getCategoryById(catId);
       if (!cat || cat.archived) return;
+      if (getActiveCategories().length <= 1) {
+        showToast('至少需保留一个活跃课题，请先新建课题后再归档此课题');
+        return;
+      }
       const taskCount = appState.data.tasks.filter(t => t.categoryId === catId).length;
       cat.archived = true;
       cat.archivedAt = new Date().toISOString();
@@ -3374,7 +3397,11 @@
           appState.catDragId = catId;
           appState.catDragOverId = null;
           appState.catDragPos = 'before';
-          el.classList.add('dragging');
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => { if (appState.catDragId === catId) el.classList.add('dragging'); });
+          } else {
+            el.classList.add('dragging');
+          }
           try { e.dataTransfer.setData('text/plain', catId); } catch (err) {}
           if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
           showSortHint(true);
@@ -4029,6 +4056,30 @@
         const q2 = baseList.filter(t => t.status === 'in_progress' && !isStarredOrUrgent(t)).sort(sortByUrgency);
         const q3 = baseList.filter(t => t.status === 'todo' && !isStarredOrUrgent(t)).sort(sortByUrgency);
         const q4 = baseList.filter(t => t.status === 'done');
+
+        // 当用户点击左上角统计卡或筛选单个状态时，只展示对应的单个全宽分区，不再显示 3 个空白象限
+        if (mode !== 'all') {
+          const singleSpec = {
+            recent: { title: '🔥 重点攻坚', sub: '星标 / 今明急件', badge: 'bg-amber-100 text-amber-800', hdr: 'bg-amber-50/50', items: q1, empty: '暂无星标或今明急件' },
+            doing: { title: '▶ 进行中', sub: '含重点与常规进行中任务', badge: 'bg-indigo-100 text-indigo-800', hdr: 'bg-indigo-50/50', items: baseList.filter(t => t.status === 'in_progress').sort(sortByUrgency), empty: '当前没有进行中的任务' },
+            todo: { title: '⏳ 待办', sub: '含重点与常规待办任务', badge: 'bg-amber-100 text-amber-800', hdr: 'bg-amber-50/50', items: baseList.filter(t => t.status === 'todo').sort(sortByUrgency), empty: '当前没有待办任务' },
+            done: { title: '✅ 已完成', sub: '阶段成果记录', badge: 'bg-emerald-100 text-emerald-800', hdr: 'bg-emerald-50/50', items: q4, empty: '暂无已完成记录' }
+          }[mode];
+          if (singleSpec) {
+            container.innerHTML = `
+              <div class="h-full flex flex-col gap-2">
+                <div class="flex items-center justify-between px-1">
+                  <span class="text-[12px] text-slate-500 font-medium">当前筛选：${singleSpec.title}</span>
+                  <button type="button" onclick="handleRecentFilterChange('all')" class="text-[12px] font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-0.5 rounded-lg hover:bg-indigo-50 transition">✕ 显示全部四象限</button>
+                </div>
+                <div class="flex-1 min-h-0 flex flex-col">
+                  ${renderQuadrantBox(singleSpec.title, singleSpec.sub, singleSpec.badge, singleSpec.hdr, singleSpec.items, singleSpec.empty)}
+                </div>
+              </div>
+            `;
+            return;
+          }
+        }
 
         const matrixClass = isFullBoard ? 'quadrant-matrix-full' : 'quadrant-matrix';
         container.innerHTML = `
@@ -4749,14 +4800,18 @@
       renderAll();
     }
 
+    let _liveFieldTimer = null;
     function updateTaskFieldLive(taskId, field, value) {
       const task = getTaskById(taskId);
       if (!task) return;
       task[field] = value;
-      saveState();
-      renderStatsAndSidebar();
-      renderGraphCanvas();
-      renderRecentTasksList();
+      clearTimeout(_liveFieldTimer);
+      _liveFieldTimer = setTimeout(() => {
+        saveState();
+        renderStatsAndSidebar();
+        renderGraphCanvas();
+        renderRecentTasksList();
+      }, 280);
     }
 
     function updateTaskField(taskId, field, value, fullRender = true) {
@@ -5404,14 +5459,17 @@
       });
       const presets = Array.from(presetSet);
       box.innerHTML = presets.map(tag => `
-        <button type="button" onclick="applyStageQuickTag('${escapeAttr(tag)}')"
+        <button type="button" data-stage-preset="${escapeAttr(tag)}"
           class="px-2 py-0.5 rounded-md text-[11.5px] font-medium transition ${
             task.stage === tag ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'
           }">${escapeHtml(tag)}</button>
       `).join('') + (task.stage ? `
-        <button type="button" onclick="applyStageQuickTag('')"
+        <button type="button" data-stage-preset=""
           class="px-2 py-0.5 rounded-md text-[11.5px] font-medium bg-rose-50 hover:bg-rose-100 text-rose-600 transition">清除标签</button>
       ` : '');
+      box.querySelectorAll('[data-stage-preset]').forEach(btn => {
+        btn.addEventListener('click', () => applyStageQuickTag(btn.getAttribute('data-stage-preset') || ''));
+      });
 
       pop.classList.remove('hidden');
       pop.classList.add('block');
@@ -5791,6 +5849,19 @@
       if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
     }
 
+    // 判断工作区是否包含实质数据（任务、回收站、归档或自定义分类均算有效数据，不能只看 tasks.length）
+    function hasWorkspaceContent(data) {
+      if (!data || typeof data !== 'object') return false;
+      if (Array.isArray(data.tasks) && data.tasks.length > 0) return true;
+      if (Array.isArray(data.trash) && data.trash.length > 0) return true;
+      const cats = Array.isArray(data.categories) ? data.categories : [];
+      if (cats.length > 2) return true;
+      if (cats.some(c => c && c.archived)) return true;
+      const defaultNames = new Set(['🎓 我的科研', '🔬 其他课题与杂项']);
+      if (cats.some(c => c && c.name && !defaultNames.has(c.name))) return true;
+      return false;
+    }
+
     function readDirData(dir) {
       const target = dir || appState.dataDir;
       if (!target) return Promise.resolve(null);
@@ -5799,12 +5870,20 @@
         .then(f => f.text())
         .then(txt => {
           if (!txt || !txt.trim()) return null;   // 空文件：确实还没有记录，不算损坏
+          let parsed;
           try {
-            return JSON.parse(txt);
+            parsed = JSON.parse(txt);
           } catch (e) {
             flagDirReadError('数据文件内容读不出来（JSON 不完整，可能是上次写入被中断）');
             return null;
           }
+          // 严格校验结构：JSON 语法合法但结构非法时必须冻结写入，绝不当成空文件覆盖
+          const check = inspectBackup(parsed);
+          if (!check || !check.ok) {
+            flagDirReadError('数据文件格式无法识别（' + ((check && check.reason) || '结构异常') + '）');
+            return null;
+          }
+          return check.data;
         })
         .catch(e => {
           // NotFoundError = 文件夹里还没建数据文件，属于正常首次使用
@@ -5846,7 +5925,12 @@
       let hasBak = false;
 
       try {
-        try { oldText = await readFileText(dir, fileName); } catch (e) { oldText = null; }
+        try {
+          oldText = await readFileText(dir, fileName);
+        } catch (e) {
+          if (e && e.name === 'NotFoundError') oldText = null;
+          else throw e;
+        }
 
         await writeFileTextRaw(dir, tmpName, jsonText);
         const tmpText = await readFileText(dir, tmpName);
@@ -6263,7 +6347,11 @@
           if (!check.ok) { showToast('❌ ' + check.reason); return; }
           openConfirmModal('导入「' + f.name + '」？', check.summary, async () => {
             if (appState.dataDir) {
-              await backupBeforeReplace(appState.dataDir, '导入前');
+              const bkOk = await backupBeforeReplace(appState.dataDir, '导入前');
+              if (!bkOk) {
+                showToast('⛔ 导入前备份失败，已中止替换以保护当前数据');
+                return;
+              }
             }
             appState.data = check.data;
             upgradeLegacySingleColumnIfNeeded();
@@ -6302,14 +6390,14 @@
       rememberLocalDirName(dir.name);
       await dirSaveHandle(dir);
       updateDirUI();
-      const remote = normalizeLoaded(await readDirData(dir));
+      const remote = await readDirData(dir);
       // 文件损坏时保留文件夹关联（好让用户点「从 .bak 恢复」），但冻结一切写入
       if (appState.dataDirReadError) {
         setSaveStatus('readerror');
         showToast('⛔ 数据文件读不出来，已暂停自动写入');
         return;
       }
-      if (remote && remote.tasks.length > 0) {
+      if (remote && hasWorkspaceContent(remote)) {
         const remoteAt = remote.updatedAt ? String(remote.updatedAt).slice(0, 19).replace('T', ' ') : '未知时间';
         openConfirmModal(
           '这个文件夹里已经有记录',
@@ -6318,7 +6406,11 @@
             + '「保留页面并覆盖文件」= 用当前页面的记录覆盖硬盘（写入前会自动留一份 .bak 快照）；\n'
             + '「取消」或按 Esc / ✕ = 什么都不做并断开本次关联，硬盘文件保持原样。',
           async () => {
-            await backupBeforeReplace(dir, '替换前');
+            const bkOk = await backupBeforeReplace(dir, '替换前');
+            if (!bkOk) {
+              showToast('⛔ 替换前备份失败，已中止覆盖');
+              return;
+            }
             appState.data = remote;
             appState.selectedTaskId = null;
             appState.selectedCategoryId = 'all';
@@ -6365,7 +6457,11 @@
           + '「保留页面并覆盖文件」= 用当前页面的记录覆盖硬盘（写入前会自动留一份 .bak 快照）；\n'
           + '「取消」或按 Esc / ✕ = 什么都不做并断开本次关联，硬盘文件保持原样。',
         async () => {
-          await backupBeforeReplace(dir, '替换前');
+          const bkOk = await backupBeforeReplace(dir, '替换前');
+          if (!bkOk) {
+            showToast('⛔ 替换前备份失败，已中止覆盖');
+            return;
+          }
           appState.data = remote;
           if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
           saveState();
@@ -6411,21 +6507,27 @@
         notes: t.notes || '',
         subtasks: (t.subtasks || []).map(st => ({ id: st.id, text: st.text, done: Boolean(st.done) }))
       }));
-      return JSON.stringify({ c: cats, t: tasks });
+      const trash = (data.trash || []).map(tr => ({
+        id: tr.id,
+        title: tr.title,
+        deletedAt: tr.deletedAt || ''
+      }));
+      return JSON.stringify({ c: cats, t: tasks, tr: trash });
     }
 
     async function adoptDirData(dir) {
       if (appState.dataDirReadError) return 'error';
-      const raw = normalizeLoaded(await readDirData(dir));
+      const raw = await readDirData(dir);
       // readDirData 可能刚刚判定文件损坏并置位，此时绝不能继续拿本地数据做比较/覆盖
       if (appState.dataDirReadError) return 'error';
-      const localIsEmpty = !appState.data.tasks || appState.data.tasks.length === 0;
-      if (!raw || raw.tasks.length === 0) {
-        return localIsEmpty ? 'empty' : 'write_local';
+      const localHasData = hasWorkspaceContent(appState.data);
+      const remoteHasData = hasWorkspaceContent(raw);
+      if (!raw || !remoteHasData) {
+        return !localHasData ? 'empty' : 'write_local';
       }
 
       // 本地还没有任何记录 → 文件里的就是唯一真数据，直接读回（哪怕它的时间戳更旧）
-      if (localIsEmpty) {
+      if (!localHasData) {
         appState.data = raw;
         if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
@@ -6442,7 +6544,11 @@
         return 'synced';
       }
       if (remoteAt && localAt && remoteAt > localAt) {
-        await backupBeforeReplace(dir, '自动同步前');
+        const bkOk = await backupBeforeReplace(dir, '自动同步前');
+        if (!bkOk) {
+          showToast('⚠️ 自动同步前备份失败，暂不覆盖当前页面');
+          return 'error';
+        }
         appState.data = raw;
         if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
@@ -6457,7 +6563,7 @@
     async function initDataDir() {
       try {
         const dir = await dirLoadHandle();
-        if (!dir) { updateDirUI(); setSaveStatus('local'); return; }
+        if (!dir) { updateDirUI(); setSaveStatus('local'); return 'none'; }
         appState.dataDir = dir;
         appState.dataDirReadError = false;   // 每次启动重新检测，不沿用上次会话的错误状态
         rememberLocalDirName(dir.name);
@@ -6466,20 +6572,23 @@
         if (perm === 'granted' || perm === 'unsupported') {
           const status = await adoptDirData(dir);
           renderAll();
-          if (appState.dataDirReadError || status === 'error' || status === 'conflict') return;
+          if (appState.dataDirReadError || status === 'error' || status === 'conflict') return status;
           if (status === 'adopted') showToast('已从数据文件读回最新记录');
           if (status === 'synced') {
             setSaveStatus('ok');
           } else if (status === 'adopted' || status === 'write_local') {
-            flushDirWrite();
+            await flushDirWrite();
           }
+          return status;
         } else {
           appState.dataDirNeedGrant = true;
           updateDirUI();
           showDirBanner();
+          return 'prompt';
         }
       } catch (e) {
         updateDirUI();
+        return 'error';
       }
     }
 
@@ -6675,8 +6784,47 @@
       return withRef ? `${base}?ref=${encodeURIComponent(cfg.branch)}` : base;
     }
 
+    const GH_TIMEOUT_MS = 20000;
+    const PRE_CLOUD_SNAPSHOT_KEY = 'lly_pre_cloud_snapshot_v1';
+
+    async function savePreCloudSnapshot(tag) {
+      try {
+        localStorage.setItem(PRE_CLOUD_SNAPSHOT_KEY, JSON.stringify({
+          savedAt: new Date().toISOString(),
+          tag: tag || '云端覆盖前',
+          data: appState.data
+        }));
+      } catch (e) {}
+      if (appState.dataDir) {
+        await backupBeforeReplace(appState.dataDir, tag || '云端覆盖前');
+      }
+    }
+
+    async function ghFetchWithTimeout(url, options, timeoutMs = GH_TIMEOUT_MS) {
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+      try {
+        return await fetch(url, Object.assign({}, options, ctrl ? { signal: ctrl.signal } : {}));
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          throw new Error('请求超时（20秒），请检查网络或代理');
+        }
+        throw err;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
+    function formatGhHttpError(status, detail) {
+      if (status === 401) return 'Token 无效或已过期 (401)';
+      if (status === 403) return 'Token 权限不足或触发限流 (403)';
+      if (status === 404) return '仓库、分支或路径不存在 (404)';
+      if (status === 422) return '提交参数或分支校验失败 (422)';
+      return `HTTP ${status}${detail ? ' · ' + detail : ''}`;
+    }
+
     async function ghFetchFile(cfg) {
-      const resp = await fetch(ghContentsUrl(cfg, true), {
+      const resp = await ghFetchWithTimeout(ghContentsUrl(cfg, true), {
         method: 'GET',
         cache: 'no-store',
         headers: {
@@ -6689,7 +6837,7 @@
       if (!resp.ok) {
         let detail = '';
         try { const j = await resp.json(); detail = j.message || ''; } catch (e) {}
-        throw new Error(`HTTP ${resp.status}${detail ? ' · ' + detail : ''}`);
+        throw new Error(formatGhHttpError(resp.status, detail));
       }
       const data = await resp.json();
       const text = base64ToUtf8(data.content || '');
@@ -6706,7 +6854,7 @@
         branch: cfg.branch
       };
       if (sha) body.sha = sha;
-      const resp = await fetch(ghContentsUrl(cfg, false), {
+      const resp = await ghFetchWithTimeout(ghContentsUrl(cfg, false), {
         method: 'PUT',
         cache: 'no-store',
         headers: {
@@ -6717,13 +6865,13 @@
         },
         body: JSON.stringify(body)
       });
-      if (resp.status === 409 || resp.status === 422) {
+      if (resp.status === 409) {
         return { conflict: true, status: resp.status };
       }
       if (!resp.ok) {
         let detail = '';
         try { const j = await resp.json(); detail = j.message || ''; } catch (e) {}
-        throw new Error(`HTTP ${resp.status}${detail ? ' · ' + detail : ''}`);
+        throw new Error(formatGhHttpError(resp.status, detail));
       }
       const res = await resp.json();
       return { conflict: false, sha: (res && res.content && res.content.sha) ? res.content.sha : '' };
@@ -6747,7 +6895,8 @@
         `云端（${remoteData.tasks.length} 条记录，更新于 ${remoteAt}）与本机（${appState.data.tasks.length} 条记录，更新于 ${localAt}）内容不同。\n\n`
           + '「用云端替换本机」= 拉取云端最新数据；\n'
           + '「用本机覆盖云端」= 将当前页面推送到 GitHub。',
-        () => {
+        async () => {
+          await savePreCloudSnapshot('云端替换前');
           appState.data = remoteData;
           appState.ghLastSha = remoteSha;
           appState.ghDirty = false;
@@ -6797,7 +6946,7 @@
         if (!remote) throw new Error('云端文件格式不符合科研脉络数据结构');
         appState.ghLastSha = res.sha;
 
-        const localIsEmpty = !appState.data.tasks || appState.data.tasks.length === 0;
+        const localHasData = hasWorkspaceContent(appState.data);
         const sameContent = buildSemanticFingerprint(remote) === buildSemanticFingerprint(appState.data);
         if (sameContent) {
           appState.ghDirty = false;
@@ -6810,7 +6959,8 @@
 
         const remoteAt = remote.updatedAt || '';
         const localAt = appState.data.updatedAt || '';
-        if (localIsEmpty || (remoteAt && localAt && remoteAt > localAt)) {
+        if (!localHasData || (remoteAt && localAt && remoteAt > localAt)) {
+          if (localHasData) await savePreCloudSnapshot('云端自动同步前');
           appState.data = remote;
           if (!getTaskById(appState.selectedTaskId)) {
             const active = getActiveTasks();
@@ -6981,7 +7131,9 @@
         showToast('请填全 GitHub 用户名、仓库名和 Token');
         return;
       }
+      clearTimeout(ghSyncTimer);
       appState.ghLastSha = '';
+      appState.ghDirty = false;
       appState.ghLastError = '';
       saveGitHubConfigToLocal(cfg);
       closeGitHubSyncModal();
@@ -7018,6 +7170,7 @@
         }
         const remote = normalizeLoaded(res.parsed);
         if (!remote) throw new Error('云端文件格式异常');
+        await savePreCloudSnapshot('强制拉取前');
         appState.data = remote;
         appState.ghLastSha = res.sha;
         appState.ghDirty = false;
@@ -7202,8 +7355,13 @@
       if (window.innerWidth >= 768) {
         centerVisibleGraphInViewport(false);
       }
-      initDataDir();
-      initGitHubSync();
+      const localStatus = await initDataDir();
+      if (localStatus !== 'conflict' && localStatus !== 'error') {
+        await initGitHubSync();
+      } else {
+        appState.ghConfig = loadGitHubConfig();
+        updateSyncButtonsUI();
+      }
       const vp = document.getElementById('canvasViewport');
       if (vp && vp.addEventListener) {
         vp.addEventListener('wheel', (e) => {
