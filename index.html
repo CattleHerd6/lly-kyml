@@ -828,16 +828,19 @@
               <input id="searchNodeInput" oninput="handleSearchInput(this.value)" type="text" placeholder="🔍 搜索节点或备注..." class="text-[13px] bg-slate-100/90 border border-slate-200/90 rounded-xl pl-3 pr-6 py-1.5 w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
               <button id="clearSearchBtn" type="button" onclick="clearSearchInput()" title="清空搜索" class="hidden absolute right-2 text-[12px] text-slate-400 hover:text-slate-700 font-bold leading-none">✕</button>
             </div>
-            <button onclick="autoLayoutNodes(true)" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="按依赖深度一键重排所有节点">
+            <button onclick="autoLayoutNodes(true)" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="按脉络层级一键重排卡片坐标（保持当前缩放视角不变）">
               自动整理脉络
+            </button>
+            <button id="undoLayoutBtn" type="button" onclick="undoAutoLayout()" class="hidden btn-soft px-2.5 py-1.5 rounded-xl text-amber-700 text-[12.5px] font-semibold" title="撤回刚刚的自动排版，恢复手动摆放坐标">
+              ↩ 撤销排版
             </button>
             <div class="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
               <button onclick="zoomCanvas(-0.1)" class="px-2 py-1 rounded-lg hover:bg-white text-slate-700 text-[13px] font-bold transition" title="缩小">-</button>
               <button id="zoomLabel" type="button" onclick="resetZoom()" class="text-[13px] text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md py-0.5 w-11 text-center font-semibold transition" title="点击恢复 100% 缩放">100%</button>
               <button onclick="zoomCanvas(0.1)" class="px-2 py-1 rounded-lg hover:bg-white text-slate-700 text-[13px] font-bold transition" title="放大">+</button>
             </div>
-            <button onclick="fitCanvasView()" class="btn-soft px-3 py-1.5 rounded-xl text-indigo-700 text-[13px] font-semibold" title="自动缩放并居中显示画布上的所有节点">
-              适应视图
+            <button onclick="resetCanvasPosition()" class="btn-soft px-3 py-1.5 rounded-xl text-indigo-700 text-[13px] font-semibold" title="回到顶部/居中起点（全部主题回到顶部，单课题居中）">
+              ⌖ 回到起点
             </button>
             <button id="toggleInspectorBtn" onclick="toggleInspectorDrawer()" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="展开或收起右侧详情编辑栏">
               侧栏详情
@@ -892,13 +895,14 @@
         <!-- Mobile-Only Category Selector Bar -->
         <div class="mobile-only px-3 py-2 bg-white border-b border-slate-200/70 items-center justify-between gap-2">
           <select id="mobileCategorySelect" onchange="selectCategory(this.value)" class="flex-1 min-w-0 text-[13px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-xl px-2.5 py-1.5 focus:outline-none"></select>
+          <button type="button" onclick="openTrashModal()" title="打开回收站" class="btn-soft px-2.5 py-1.5 rounded-xl text-[12.5px] text-slate-600 shrink-0">🗑</button>
           <button type="button" onclick="openNewTaskModal(null)" class="btn-primary px-3 py-1.5 rounded-xl text-[12.5px] font-semibold text-white shrink-0">+ 新建</button>
         </div>
 
         <div class="px-3 pt-2.5 pb-1 bg-white/70 border-b border-slate-200/60">
           <div class="flex items-center gap-1.5">
             <input id="quickMemoInput" type="text" autocomplete="off" placeholder="⚡ 快速记一条实验进展 / 待办，回车即存..."
-              onkeydown="if(event.key==='Enter'){event.preventDefault(); submitQuickMemo();}"
+              onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitQuickMemo();}"
               class="flex-1 text-[12.5px] bg-slate-100/90 focus:bg-white border border-slate-200/90 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
             <button type="button" onclick="submitQuickMemo()" class="btn-soft px-2.5 py-1.5 rounded-xl text-[12px] font-semibold text-indigo-700 shrink-0">记一笔</button>
           </div>
@@ -1020,7 +1024,7 @@
       <div class="p-5 space-y-3.5 text-[13px] max-h-[80vh] overflow-y-auto">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">这一步要做什么 *</label>
-          <input id="inputTaskTitle" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitNewTask();}" placeholder="一句话说清这一步要做什么（回车即可保存）" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="inputTaskTitle" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitNewTask();}" placeholder="一句话说清这一步要做什么（回车即可保存）" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -1053,7 +1057,7 @@
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">备注 / 路径（可选）</label>
-          <input id="inputTaskNotes" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitNewTask();}" placeholder="服务器、环境、参数、文件路径…… 不填也行" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px]" />
+          <input id="inputTaskNotes" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitNewTask();}" placeholder="服务器、环境、参数、文件路径…… 不填也行" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px]" />
         </div>
       </div>
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
@@ -1073,11 +1077,11 @@
       <div class="p-5 space-y-3.5 text-[13px]">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">主题 / 分类名称 *</label>
-          <input id="inputCatName" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitNewCategory();}" placeholder="如：水热氧化铁实验 / 文献阅读 / 某课题（回车即可创建）" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="inputCatName" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitNewCategory();}" placeholder="如：水热氧化铁实验 / 文献阅读 / 某课题（回车即可创建）" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">简短说明（选填）</label>
-          <input id="inputCatTarget" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitNewCategory();}" placeholder="一句话写目标，可以不填" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px]" />
+          <input id="inputCatTarget" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitNewCategory();}" placeholder="一句话写目标，可以不填" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px]" />
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">大类主题色</label>
@@ -1125,7 +1129,7 @@
     <div class="text-[11px] font-semibold text-slate-400 mb-1.5">快速设置阶段标签</div>
     <div class="flex items-center gap-1 mb-2">
       <input id="stageQuickInput" type="text" placeholder="输入自定义标签回车..."
-        onkeydown="if(event.key==='Enter'){event.preventDefault(); confirmStageQuickInput();} else if(event.key==='Escape'){hideStageQuickMenu();}"
+        onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); confirmStageQuickInput();} else if(event.key==='Escape'){hideStageQuickMenu();}"
         class="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       <button type="button" onclick="confirmStageQuickInput()" class="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11.5px] font-medium shrink-0">确定</button>
     </div>
@@ -1179,7 +1183,7 @@
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div>
           <h3 class="font-bold text-slate-800 text-[15px]">⚙ 数据与同步中心</h3>
-          <p class="text-[12px] text-slate-400 mt-0.5">本地文件夹与 GitHub 均在停手 15 秒后自动合并保存，也可随时点右上角立即同步</p>
+          <p class="text-[12px] text-slate-400 mt-0.5">本地文件夹与 GitHub 均在停手 15 秒后自动打包保存（云端同步后自动留存近 7 天每日备份）</p>
         </div>
         <button onclick="closeGitHubSyncModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
       </div>
@@ -1233,10 +1237,11 @@
 
         <div class="pt-2 border-t border-slate-100 space-y-2">
           <div class="text-[12px] font-semibold text-slate-500">跨设备快速导入（电脑配好后一键发给手机粘贴）</div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 flex-wrap">
             <button type="button" onclick="copyGitHubConfigBundle()" class="btn-soft px-3 py-1.5 rounded-xl text-[12px] font-medium text-indigo-700">📋 复制配置口令</button>
             <button type="button" onclick="togglePasteConfigBox()" class="btn-soft px-3 py-1.5 rounded-xl text-[12px] font-medium text-slate-700">📥 粘贴导入配置</button>
           </div>
+          <div class="text-[11px] text-amber-700">⚠️ 配置口令包含仓库读写密钥，请仅在自己的设备间私密传输，勿发给他人。</div>
           <div id="ghPasteConfigWrap" class="hidden space-y-1.5">
             <textarea id="ghPasteConfigInput" rows="2" placeholder="粘贴从另一台设备复制的配置口令..." class="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             <button type="button" onclick="applyPastedGitHubConfig()" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-semibold">识别并填入上方</button>
@@ -1278,7 +1283,7 @@
       <div class="p-5 space-y-3.5 text-[13px]">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">事件名称 *</label>
-          <input id="inputCdTitle" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitCountdownForm();}" placeholder="如：ACS Catalysis 截稿 / 中期答辩 / 组会汇报" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="inputCdTitle" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitCountdownForm();}" placeholder="如：ACS Catalysis 截稿 / 中期答辩 / 组会汇报" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -1298,7 +1303,7 @@
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">简短备注（选填）</label>
-          <input id="inputCdNote" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitCountdownForm();}" placeholder="如：提前两天给导师看终稿" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="inputCdNote" type="text" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitCountdownForm();}" placeholder="如：提前两天给导师看终稿" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="flex items-center gap-2 pt-0.5">
           <input id="inputCdPinned" type="checkbox" class="rounded text-indigo-600" />
@@ -1790,6 +1795,7 @@
         y: Number.isFinite(t.y) ? Math.max(-50000, Math.min(50000, Math.round(t.y))) : (80 + Math.floor(idx / 3) * 180),
         notes: typeof t.notes === 'string' ? t.notes : '',
         _savedSubtasksDone: Array.isArray(t._savedSubtasksDone) ? t._savedSubtasksDone : null,
+        _originalDepsBeforeRelay: Array.isArray(t._originalDepsBeforeRelay) ? t._originalDepsBeforeRelay.filter(Boolean) : null,
         subtasks: (() => {
           const usedSubIds = new Set();
           return Array.isArray(t.subtasks) ? t.subtasks.map((s, sIdx) => ({
@@ -1982,7 +1988,9 @@
       }
 
       if (!cacheOk) {
-        showToast('⚠️ 浏览器缓存写不进去（可能空间满了），但数据文件夹仍在正常保存');
+        showToast(appState.dataDir
+          ? '⚠️ 浏览器缓存已满，正在依靠本地数据文件夹保存'
+          : '⚠️ 浏览器缓存写入失败（可能空间已满），请立即在右上角「⚙ 数据」导出备份！');
       }
     }
 
@@ -2329,7 +2337,7 @@
         updateSnapTargetDomHighlight(appState.wiringSnapTaskId);
         const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
         appState.wiringTempPathD = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-        renderEdgesOnly();
+        scheduleEdgesRender();
       };
 
       const cleanup = () => {
@@ -2655,13 +2663,18 @@
 
     function purgeTaskFromTrash(trashId) {
       const trash = ensureTrash();
-      const idx = trash.findIndex(t => t.id === trashId);
-      if (idx < 0) return;
-      trash.splice(idx, 1);
-      saveState();
-      renderTrashList();
-      renderStatsAndSidebar();
-      showToast('已彻底删除');
+      const target = trash.find(t => t.id === trashId);
+      if (!target) return;
+      openConfirmModal('彻底删除这条记录？', `「${target.title || '未命名记录'}」将被永久删除，无法再从回收站恢复。`, () => {
+        const list = ensureTrash();
+        const i = list.findIndex(t => t.id === trashId);
+        if (i < 0) return;
+        list.splice(i, 1);
+        saveState();
+        renderTrashList();
+        renderStatsAndSidebar();
+        showToast('已彻底删除');
+      });
     }
 
     function emptyTrash() {
@@ -3881,6 +3894,16 @@
       applyStageTransform();
     }
 
+    let _edgesRafId = 0;
+    function scheduleEdgesRender() {
+      if (_edgesRafId) return;
+      if (typeof requestAnimationFrame !== 'function') { renderEdgesOnly(); return; }
+      _edgesRafId = requestAnimationFrame(() => {
+        _edgesRafId = 0;
+        renderEdgesOnly();
+      });
+    }
+
     function renderEdgesOnly() {
       const edgesSvg = document.getElementById('edgesSvg');
       if (!edgesSvg) return;
@@ -4142,7 +4165,7 @@
         const titleContentHtml = isInlineEditing
           ? `<input id="inlineNodeTitleInput_${task.id}" type="text" value="${escapeAttr(task.title)}"
                onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation()"
-               onkeydown="if(event.key==='Enter'){event.preventDefault(); commitInlineTitleEdit('${task.id}', this.value);} else if(event.key==='Escape'){event.preventDefault(); cancelInlineTitleEdit();}"
+               onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); commitInlineTitleEdit('${task.id}', this.value);} else if(event.key==='Escape'){event.preventDefault(); cancelInlineTitleEdit();}"
                onblur="commitInlineTitleEdit('${task.id}', this.value)"
                class="w-full text-[12.5px] font-bold text-slate-900 bg-indigo-50/70 border border-indigo-400 rounded px-1.5 py-0 focus:outline-none focus:ring-1 focus:ring-indigo-500 h-5 leading-5" />`
           : `<div ondblclick="event.stopPropagation(); startInlineTitleEdit('${task.id}')"
@@ -4329,6 +4352,7 @@
 
     function renderRecentTasksList() {
       const container = document.getElementById('recentTasksList');
+      const prevScrollTop = container ? container.scrollTop : 0;
       const filtered = getFilteredTasks(true);
       const quadrantMode = appState.boardMode === 'quadrant' || appState.boardMode === 'grid';
 
@@ -4500,6 +4524,7 @@
       }
 
       container.innerHTML = html;
+      if (prevScrollTop > 0) container.scrollTop = prevScrollTop;
     }
 
     function renderRecentCard(task) {
@@ -4716,7 +4741,7 @@
 
             <div class="flex gap-1.5">
               <input id="newSubtaskInput" type="text" placeholder="添加具体步骤，回车即存..."
-                onkeydown="if(event.key==='Enter'){event.preventDefault(); addSubtask('${task.id}');}"
+                onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); addSubtask('${task.id}');}"
                 class="flex-1 text-[13px] border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               <button type="button" onclick="addSubtask('${task.id}')" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-semibold shrink-0">
                 + 添加
@@ -4883,7 +4908,7 @@
         }
       }
       appState.selectedTaskId = taskId;
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 768 || appState.currentView === 'recent') {
         appState.inspectorOpen = true;
       }
       renderAll();
@@ -5144,20 +5169,21 @@
     function toggleTaskDep(taskId, depId) {
       const task = getTaskById(taskId);
       if (!task) return;
-      const deps = getTaskDeps(task);
-      const idx = deps.indexOf(depId);
+      // 基于原始 deps 增删，保留指向已归档课题的跨课题依赖不丢失
+      const rawDeps = Array.isArray(task.deps) ? task.deps.filter(d => Boolean(getTaskById(d))) : getTaskDeps(task);
+      const idx = rawDeps.indexOf(depId);
       if (idx >= 0) {
-        deps.splice(idx, 1);
+        rawDeps.splice(idx, 1);
       } else {
         if (wouldCreateCycle(taskId, depId)) {
           showToast('⚠️ 不能勾选下游子任务作为前置（避免循环依赖）');
           renderInspector();
           return;
         }
-        deps.push(depId);
+        rawDeps.push(depId);
       }
-      task.deps = deps;
-      task.parentId = deps[0] || null;
+      task.deps = rawDeps;
+      task.parentId = rawDeps[0] || null;
       saveState();
       renderAll();
       showToast(idx >= 0 ? '已移除该前置依赖' : '🔗 已添加多前置汇聚依赖');
@@ -5354,7 +5380,7 @@
               appState.draggedDomEl.style.top = newY + 'px';
             }
             autoPanWhileDragging(px, py);
-            renderEdgesOnly();
+            scheduleEdgesRender();
           }
         } else if (appState.draggingHubId) {
           const cat = getCategoryById(appState.draggingHubId);
@@ -5366,7 +5392,7 @@
               appState.draggedDomEl.style.top = newY + 'px';
             }
             autoPanWhileDragging(px, py);
-            renderEdgesOnly();
+            scheduleEdgesRender();
           }
         }
         return;
@@ -5402,6 +5428,7 @@
 
         if (moved) {
           appState.suppressNextClick = true;
+          setTimeout(() => { appState.suppressNextClick = false; }, 120);
           ensureCanvasStageSize();
           saveState();
           if (appState.selectedCategoryId === 'all' && appState.data.categories.length >= 2) {
@@ -5425,20 +5452,37 @@
     // Keyboard shortcuts (Ctrl+Enter 新建记录, Esc 关闭弹窗；Tab 交还浏览器)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        const anyModalOpen = ['newTaskModal', 'categoryModal', 'confirmActionModal', 'trashModal', 'archiveModal', 'ghSyncModal', 'countdownModal', 'helpGuideModal', 'deleteCatModal'].some(id => {
+        if (appState.wiringFromTaskId) {
+          if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
+          appState.wiringFromTaskId = null;
+          appState.wiringTempPathD = '';
+          appState.wiringSnapTaskId = null;
+          appState.wiringGhostPoint = null;
+          renderEdgesOnly();
+          showToast('已取消连线');
+          return;
+        }
+        if (appState.ctxMenuOpen) { hideContextMenu(); return; }
+        if (appState.stageQuickTaskId) { hideStageQuickMenu(); return; }
+        const modalStack = [
+          ['confirmActionModal', closeConfirmModal],
+          ['countdownModal', closeCountdownModal],
+          ['helpGuideModal', closeHelpGuideModal],
+          ['ghSyncModal', closeGitHubSyncModal],
+          ['deleteCatModal', closeDeleteCatModal],
+          ['archiveModal', closeArchiveModal],
+          ['trashModal', closeTrashModal],
+          ['categoryModal', closeCategoryModal],
+          ['newTaskModal', closeNewTaskModal]
+        ];
+        for (const [id, closeFn] of modalStack) {
           const el = document.getElementById(id);
-          return el && !el.classList.contains('hidden');
-        });
-        closeNewTaskModal();
-        closeCategoryModal();
-        closeConfirmModal();
-        closeTrashModal();
-        closeArchiveModal();
-        closeGitHubSyncModal();
-        closeCountdownModal();
-        closeHelpGuideModal();
-        closeDeleteCatModal();
-        if (!anyModalOpen && !appState.ctxMenuOpen && appState.inspectorOpen) {
+          if (el && !el.classList.contains('hidden')) {
+            closeFn();
+            return;
+          }
+        }
+        if (appState.inspectorOpen) {
           closeInspector();
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -5473,7 +5517,35 @@
     // 2) 1 对多分叉：父节点只垂直居中于【自己的子节点组】，绝不被同列其它无关支线拉偏；
     // 3) 多前置汇合（A + B → D）：汇合节点自动对齐所有前置父节点的垂直中点；
     // 4) 不同主支线之间留出明显的支线呼吸间距（BRANCH_GAP_Y > SIBLING_GAP_Y），层次分明。
+    let _lastLayoutSnapshot = null;
+
+    function undoAutoLayout() {
+      if (!_lastLayoutSnapshot) return;
+      const snap = _lastLayoutSnapshot;
+      _lastLayoutSnapshot = null;
+      (appState.data.categories || []).forEach(c => {
+        if (snap.cats[c.id]) { c.hubX = snap.cats[c.id].x; c.hubY = snap.cats[c.id].y; }
+      });
+      (appState.data.tasks || []).forEach(t => {
+        if (snap.tasks[t.id]) { t.x = snap.tasks[t.id].x; t.y = snap.tasks[t.id].y; }
+      });
+      const btn = document.getElementById('undoLayoutBtn');
+      if (btn) btn.classList.add('hidden');
+      saveState();
+      renderGraphCanvas();
+      showToast('↩ 已恢复自动整理前的卡片坐标');
+    }
+
     function autoLayoutNodes(showMsg = true, silentInit = false) {
+      if (!silentInit) {
+        const catsSnap = {};
+        const tasksSnap = {};
+        (appState.data.categories || []).forEach(c => { catsSnap[c.id] = { x: c.hubX, y: c.hubY }; });
+        (appState.data.tasks || []).forEach(t => { tasksSnap[t.id] = { x: t.x, y: t.y }; });
+        _lastLayoutSnapshot = { cats: catsSnap, tasks: tasksSnap };
+        const btn = document.getElementById('undoLayoutBtn');
+        if (btn) btn.classList.remove('hidden');
+      }
       appState.draggingNodeId = null;
       appState.draggingHubId = null;
       appState.draggedDomEl = null;
@@ -5721,9 +5793,8 @@
       if (!silentInit) {
         saveState();
         renderGraphCanvas();
-        centerVisibleGraphInViewport(false);
       }
-      if (showMsg) showToast('✨ 已按紧凑瀑布流矩阵与子树对齐重排');
+      if (showMsg) showToast('✨ 已整理卡片坐标（保持当前视角不变，可点「撤销排版」还原）');
     }
 
     // 卡片标题原地双击改名 & 阶段标签快速切换浮层
@@ -5879,6 +5950,7 @@
         : '新增科研工作 / 脉络节点';
 
       document.getElementById('inputTaskTitle').value = '';
+      document.getElementById('inputTaskStage').value = '';
       document.getElementById('inputTaskDue').value = '';
       document.getElementById('inputTaskSubtasks').value = '';
       document.getElementById('inputTaskNotes').value = '';
@@ -5960,7 +6032,7 @@
         stage,
         parentId,
         deps: parentId ? [parentId] : [],
-        status: isRecent ? 'in_progress' : 'todo',
+        status: 'todo',
         isRecent,
         dueDate,
         createdAt: new Date().toISOString(),
@@ -6056,9 +6128,13 @@
     // Downloads a zero-dependency Windows .bat launcher that opens lly.html / research_flow_app.html in Edge App Mode!
     
     // Fit all visible hubs and task nodes into the viewport automatically (适应视图)
+    function resetCanvasPosition() {
+      centerVisibleGraphInViewport(false);
+      showToast(`⌖ 已回到视图起点 (${Math.round(appState.zoom * 100)}%)`);
+    }
+
     function fitCanvasView() {
-      centerVisibleGraphInViewport(true);
-      showToast(`📐 已居中适应视图 (${Math.round(appState.zoom * 100)}%)`);
+      resetCanvasPosition();
     }
 
     // Double-click blank canvas: open task modal anchored at exact canvas point (supports negative coords & avoids orphan nodes on cancel)
@@ -6328,9 +6404,14 @@
       appState.dataDirReadError = false;
       hideDirErrorBanner();
       const restored = normalizeLoaded(JSON.parse(bak));
-      if (restored) { appState.data = restored; renderAll(); }
+      if (restored) {
+        appState.data = restored;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+        if (isGitHubSyncEnabled()) scheduleGhSync();
+        renderAll();
+      }
       setSaveStatus('ok');
-      showToast('已从 .bak 快照恢复，自动写入重新启用');
+      showToast('已从 .bak 快照恢复并同步缓存，自动写入重新启用');
     }
 
     const BACKUP_KEEP_DAYS = 7;
@@ -6662,6 +6743,13 @@
           const check = inspectBackup(raw);
           if (!check.ok) { showToast('❌ ' + check.reason); return; }
           openConfirmModal('导入「' + f.name + '」？', check.summary, async () => {
+            try {
+              localStorage.setItem(PRE_CLOUD_SNAPSHOT_KEY, JSON.stringify({
+                savedAt: new Date().toISOString(),
+                tag: '导入前',
+                data: appState.data
+              }));
+            } catch (e) {}
             if (appState.dataDir) {
               const bkOk = await backupBeforeReplace(appState.dataDir, '导入前');
               if (!bkOk) {
@@ -7193,6 +7281,111 @@
       return { conflict: false, sha: (res && res.content && res.content.sha) ? res.content.sha : '' };
     }
 
+    const GH_DAILY_BACKUP_KEY = 'lly_gh_daily_backup_v1';
+
+    function ghDirUrl(cfg, dirPath) {
+      const encoded = dirPath.split('/').map(seg => encodeURIComponent(seg)).join('/');
+      return `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/contents/${encoded}?ref=${encodeURIComponent(cfg.branch)}`;
+    }
+
+    // 云端每日备份：在私有仓库的 backups/LLY_备份_YYYY-MM-DD.json 保留近 7 天快照（与本地 7 天一致）
+    async function writeGitHubDailyBackup(cfg, jsonText) {
+      if (!cfg || !cfg.owner || !cfg.repo || !cfg.token) return;
+      const day = getOffsetISODate(0);
+      const now = Date.now();
+      try {
+        const metaRaw = localStorage.getItem(GH_DAILY_BACKUP_KEY);
+        if (metaRaw) {
+          const meta = JSON.parse(metaRaw);
+          // 同一天内至少间隔 30 分钟才更新当天的每日备份，避免刷屏 commit
+          if (meta && meta.repo === (cfg.owner + '/' + cfg.repo) && meta.day === day && (now - (meta.at || 0)) < 30 * 60 * 1000) {
+            return;
+          }
+        }
+      } catch (e) {}
+
+      const backupPath = `backups/LLY_备份_${day}.json`;
+      const backupCfg = Object.assign({}, cfg, { path: backupPath });
+      try {
+        let existingSha = '';
+        const probe = await ghFetchWithTimeout(ghContentsUrl(backupCfg, true), {
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            'Authorization': 'Bearer ' + cfg.token,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          }
+        });
+        if (probe.ok) {
+          const pj = await probe.json();
+          existingSha = (pj && pj.sha) ? pj.sha : '';
+        }
+        const body = {
+          message: `backup: daily snapshot ${day}`,
+          content: utf8ToBase64(jsonText),
+          branch: cfg.branch
+        };
+        if (existingSha) body.sha = existingSha;
+        const putResp = await ghFetchWithTimeout(ghContentsUrl(backupCfg, false), {
+          method: 'PUT',
+          cache: 'no-store',
+          headers: {
+            'Authorization': 'Bearer ' + cfg.token,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          },
+          body: JSON.stringify(body)
+        });
+        if (putResp.ok) {
+          try {
+            localStorage.setItem(GH_DAILY_BACKUP_KEY, JSON.stringify({ repo: cfg.owner + '/' + cfg.repo, day, at: now }));
+          } catch (e) {}
+          await pruneGitHubOldBackups(cfg);
+        }
+      } catch (e) {
+        // 每日备份失败不影响主同步
+      }
+    }
+
+    async function pruneGitHubOldBackups(cfg) {
+      try {
+        const listResp = await ghFetchWithTimeout(ghDirUrl(cfg, 'backups'), {
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            'Authorization': 'Bearer ' + cfg.token,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          }
+        });
+        if (!listResp.ok) return;
+        const files = await listResp.json();
+        if (!Array.isArray(files)) return;
+        const keepFrom = getOffsetISODate(-(BACKUP_KEEP_DAYS - 1));
+        const re = /^LLY_备份_(\d{4}-\d{2}-\d{2})\.json$/;
+        for (const f of files) {
+          if (!f || f.type !== 'file' || !f.name || !f.sha) continue;
+          const m = f.name.match(re);
+          if (m && m[1] < keepFrom) {
+            const delCfg = Object.assign({}, cfg, { path: 'backups/' + f.name });
+            await ghFetchWithTimeout(ghContentsUrl(delCfg, false), {
+              method: 'DELETE',
+              cache: 'no-store',
+              headers: {
+                'Authorization': 'Bearer ' + cfg.token,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28'
+              },
+              body: JSON.stringify({ message: `prune: old backup ${f.name}`, sha: f.sha, branch: cfg.branch })
+            }).catch(() => {});
+          }
+        }
+      } catch (e) {}
+    }
+
     function scheduleGhSync() {
       if (!isGitHubSyncEnabled()) return;
       appState.ghDirty = true;
@@ -7375,6 +7568,7 @@
           appState.ghDirty = false;
           updateSyncButtonsUI();
           if (!silent) showToast('☁️ 已同步到 GitHub');
+          writeGitHubDailyBackup(cfg, jsonText);
         } else {
           appState.ghDirty = true;
           updateSyncButtonsUI();
@@ -7982,16 +8176,33 @@
       }
     });
 
+    function flushPendingEditsBeforeLeave() {
+      if (_liveFieldTimer) {
+        clearTimeout(_liveFieldTimer);
+        _liveFieldTimer = null;
+        saveState();
+      }
+      if (appState.dataDir && dirWriteTimer) {
+        clearTimeout(dirWriteTimer);
+        dirWriteTimer = null;
+        flushDirWrite();
+      }
+      if (isGitHubSyncEnabled() && appState.ghDirty) {
+        clearTimeout(ghSyncTimer);
+        pushToGitHub(false, true);
+      }
+    }
+
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        if (appState.dataDir && dirWriteTimer) {
-          clearTimeout(dirWriteTimer);
-          flushDirWrite();
-        }
-        if (isGitHubSyncEnabled() && appState.ghDirty) {
-          clearTimeout(ghSyncTimer);
-          pushToGitHub(false, true);
-        }
+      if (document.visibilityState === 'hidden') flushPendingEditsBeforeLeave();
+    });
+    window.addEventListener('pagehide', flushPendingEditsBeforeLeave);
+    window.addEventListener('beforeunload', (e) => {
+      const hasPending = Boolean(_liveFieldTimer || (appState.dataDir && dirWriteTimer) || (isGitHubSyncEnabled() && appState.ghDirty));
+      flushPendingEditsBeforeLeave();
+      if (hasPending) {
+        e.preventDefault();
+        e.returnValue = '';
       }
     });
 
@@ -8027,6 +8238,10 @@
     window.addEventListener('blur', hideContextMenu);
     window.addEventListener('resize', () => {
       hideContextMenu();
+      if (window.innerWidth < 768 && (appState.currentView === 'graph' || appState.currentView === 'split')) {
+        setAppView('recent');
+        return;
+      }
       if (appState.boardMode === 'quadrant' || appState.boardMode === 'grid') renderRecentTasksList();
     });
 
