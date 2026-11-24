@@ -251,9 +251,9 @@
       width: 14px;
       height: 14px;
       border-radius: 9999px;
-      background: #0891b2;
+      background: #6366f1;
       border: 2px solid #ffffff;
-      box-shadow: 0 0 0 1.5px #0891b2;
+      box-shadow: 0 0 0 1.5px #6366f1;
       cursor: crosshair;
       z-index: 30;
       transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
@@ -344,6 +344,8 @@
     .bg-amber-50\/70 { background-color: rgba(255,251,235,0.7); } .bg-amber-100\/90 { background-color: rgba(254,243,199,0.9); } .bg-amber-400\/90 { background-color: rgba(251,191,36,0.9); }
     .bg-rose-50 { background-color: #fff1f2; } .bg-rose-500\/90 { background-color: rgba(244,63,94,0.9); }
     .bg-cyan-50 { background-color: #ecfeff; } .bg-cyan-100 { background-color: #cffafe; } .bg-cyan-600 { background-color: #0891b2; }
+    .bg-sky-50 { background-color: #f0f9ff; } .bg-sky-100 { background-color: #e0f2fe; } .bg-sky-600 { background-color: #0284c7; }
+    .text-sky-800 { color: #075985; } .border-sky-400 { border-color: #38bdf8; }
     .bg-gradient-to-br { background: linear-gradient(135deg, #6366f1, #7c3aed); }
     .text-slate-100 { color: #f1f5f9; } .text-slate-200 { color: #e2e8f0; } .text-slate-300 { color: #cbd5e1; } .text-slate-900 { color: #0f172a; }
     .text-indigo-200 { color: #c7d2fe; } .text-indigo-300 { color: #a5b4fc; } .text-indigo-800 { color: #3730a3; } .text-indigo-900 { color: #312e81; } .text-indigo-950 { color: #1e1b4b; }
@@ -736,11 +738,14 @@
 
     <!-- Right Actions -->
     <div class="flex items-center gap-1.5">
-      <button id="syncNowBtn" onclick="syncNowAll()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[12.5px] font-medium flex items-center gap-1.5 transition" title="立即保存到本地文件夹并同步到 GitHub（快捷键 Ctrl+S）">
-        <span>☁️ 立即同步</span>
+      <button id="syncNowBtn" onclick="syncNowAll()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[12.5px] font-medium flex items-center gap-1.5 transition" title="点击立即保存并同步（快捷键 Ctrl+S）">
+        <span>☁️ 同步</span>
       </button>
-      <button id="ghSyncSettingsBtn" onclick="openGitHubSyncModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-[12.5px] font-medium transition" title="配置 GitHub 私有仓库云同步">
-        ⚙
+      <button id="ghSyncSettingsBtn" onclick="openGitHubSyncModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-[12.5px] font-medium transition" title="数据与同步中心（本地文件夹 / GitHub / 导入导出 / 启动器）">
+        ⚙ 数据
+      </button>
+      <button id="helpGuideBtn" onclick="openHelpGuideModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-[12.5px] font-semibold transition" title="打开使用指南">
+        ?
       </button>
       <button onclick="openNewTaskModal(null)" class="desktop-only btn-primary px-4 py-2 rounded-xl text-white text-[14px] font-medium flex items-center gap-1.5" title="快捷键: Ctrl + Enter">
         <span class="text-[16px] leading-none">+</span>
@@ -782,46 +787,19 @@
         </div>
       </div>
 
-      <!-- Research Big Categories -->
-      <div class="p-3.5 flex-1 overflow-y-auto space-y-4">
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">课题分类</span>
-            <button onclick="openCategoryModal()" class="text-[13px] text-indigo-600 hover:text-indigo-700 font-semibold px-1.5 py-0.5 rounded hover:bg-indigo-50 transition">+ 新建课题</button>
-          </div>
-          <div id="categoryListContainer" class="space-y-1.5"></div>
+      <!-- Research Big Categories (full vertical room!) -->
+      <div class="p-3.5 flex-1 overflow-y-auto">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">课题分类</span>
+          <button onclick="openCategoryModal()" class="text-[13px] text-indigo-600 hover:text-indigo-700 font-semibold px-1.5 py-0.5 rounded hover:bg-indigo-50 transition">+ 新建课题</button>
         </div>
-        <div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
-          <button id="sidebarArchiveBtn" onclick="openArchiveModal()" title="查看已归档的课题脉络" class="text-[12px] text-slate-500 hover:text-amber-700 font-medium px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200/70 hover:border-amber-200 transition text-center truncate">📦 归档</button>
-          <button id="sidebarTrashBtn" onclick="openTrashModal()" title="打开回收站" class="text-[12px] text-slate-500 hover:text-rose-600 font-medium px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200/70 hover:border-rose-200 transition text-center truncate">🗑 回收站</button>
-        </div>
+        <div id="categoryListContainer" class="space-y-1.5"></div>
       </div>
 
-      <!-- Bottom Save Bar -->
-      <div class="p-3 border-t border-slate-200 bg-slate-50 flex flex-col gap-2">
-        <span id="saveStatusIndicator" class="text-emerald-700 font-medium flex items-center gap-1.5 text-[13px]">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 本地实时保存中
-        </span>
-        <div class="flex items-center gap-1.5">
-          <button onclick="handleLocalDirBtnClick()" id="bindLocalJsonBtn" class="btn-primary flex-1 min-w-0 py-2 px-3 rounded-xl text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 truncate" title="选一个硬盘上的文件夹，停手 15 秒后自动写入">
-            <span>📂 关联本地数据文件夹</span>
-          </button>
-          <button onclick="bindDirectLocalJsonFile()" id="changeLocalDirBtn" class="hidden btn-soft px-2.5 py-2 rounded-xl text-[12px] font-medium text-slate-600 shrink-0" title="更换其他本地数据文件夹">更换</button>
-        </div>
-        <button onclick="openGitHubSyncModal()" id="sidebarGhSyncBtn" class="btn-soft w-full py-1.5 px-3 rounded-xl text-[12.5px] font-semibold text-slate-700 flex items-center justify-center gap-1.5" title="配置 GitHub 私有仓库，实现电脑与手机端双向同步">
-          <span>☁️ GitHub 云同步设置</span>
-        </button>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button onclick="exportBackupJsonFile()" class="btn-soft py-2 px-2 rounded-xl text-[12.5px] font-medium text-slate-700 flex items-center justify-center gap-1" title="将当前全部记录导出为本地 .json 备份文件">
-            <span>⬇ 导出备份</span>
-          </button>
-          <button onclick="importFromBackupFile()" class="btn-soft py-2 px-2 rounded-xl text-[12.5px] font-medium text-slate-700 flex items-center justify-center gap-1" title="从一份 .json 备份恢复记录">
-            <span>⬆ 从备份文件导入</span>
-          </button>
-        </div>
-        <button onclick="downloadEdgeAppLauncher()" id="edgeAppLauncherBtn" class="w-full py-1.5 px-2.5 rounded-xl text-[12px] font-medium text-slate-500 hover:text-indigo-700 hover:bg-indigo-50/80 border border-dashed border-slate-200 hover:border-indigo-300 flex items-center justify-center gap-1.5 transition" title="生成放到同文件夹双击即可运行的无边框 Edge 独立窗口启动器（100% 兼容含中文的文件夹路径与 index.html）">
-          <span>🖥️ 生成 Edge 独立应用启动器</span>
-        </button>
+      <!-- Compact Footer: Archive & Trash only -->
+      <div class="p-2.5 border-t border-slate-100 bg-slate-50/70 grid grid-cols-2 gap-1.5 shrink-0">
+        <button id="sidebarArchiveBtn" onclick="openArchiveModal()" title="查看已归档的课题脉络" class="text-[12px] text-slate-600 hover:text-amber-700 font-medium px-2 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-slate-200/80 hover:border-amber-200 transition text-center truncate">📦 归档</button>
+        <button id="sidebarTrashBtn" onclick="openTrashModal()" title="打开回收站" class="text-[12px] text-slate-600 hover:text-rose-600 font-medium px-2 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-slate-200/80 hover:border-rose-200 transition text-center truncate">🗑 回收站</button>
       </div>
     </aside>
 
@@ -834,11 +812,16 @@
       <section id="graphSection" class="flex-1 flex flex-col h-full overflow-hidden relative border-r border-slate-200/90">
         <!-- Canvas Toolbar -->
         <div class="bg-white border-b border-slate-200/80 px-4 py-2 flex flex-wrap items-center justify-between gap-2 z-10">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <span id="currentCategoryBadge" class="px-2.5 py-1 rounded-lg text-[13px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/70">
               📂 全部主题
             </span>
-
+            <div id="overviewDepthBar" class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 text-[12px]" title="控制全部主题总览时最多展示到第几级细分卡片">
+              <span class="text-slate-400 pl-1.5 pr-0.5 font-medium">总览:</span>
+              <button type="button" id="depthBtn2" onclick="setOverviewDepth(2)" class="px-2 py-0.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition">2级</button>
+              <button type="button" id="depthBtn3" onclick="setOverviewDepth(3)" class="px-2 py-0.5 rounded-md font-semibold bg-white text-indigo-700 shadow-sm transition">3级</button>
+              <button type="button" id="depthBtnAll" onclick="setOverviewDepth('all')" class="px-2 py-0.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition">全部</button>
+            </div>
           </div>
           <div class="flex items-center gap-1.5">
             <div class="relative flex items-center">
@@ -877,8 +860,9 @@
         <!-- Interactive Mind-Map Viewport -->
         <div id="canvasViewport" ondragstart="return false;" ondblclick="handleCanvasDblClick(event)" onmousedown="startPanCanvas(event)" ontouchstart="startTouchPanCanvas(event)" class="flex-1 canvas-grid overflow-hidden relative">
           <div id="canvasStage" class="relative origin-top-left" style="width: 1600px; height: 1000px;">
-            <svg id="edgesSvg" style="overflow: visible;" class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div id="nodesContainer" class="absolute inset-0"></div>
+            <div id="zonesContainer" class="absolute inset-0 pointer-events-none" style="z-index: 1;"></div>
+            <svg id="edgesSvg" style="overflow: visible; z-index: 5;" class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="nodesContainer" class="absolute inset-0" style="z-index: 10;"></div>
           </div>
         </div>
       </section>
@@ -1102,7 +1086,7 @@
             <option value="emerald">翠绿 (Emerald)</option>
             <option value="amber">琥珀 (Amber)</option>
             <option value="rose">玫红 (Rose)</option>
-            <option value="cyan">青色 (Cyan)</option>
+            <option value="cyan">天蓝 (Sky)</option>
           </select>
         </div>
       </div>
@@ -1189,19 +1173,36 @@
     </div>
   </div>
 
-  <!-- ===== GitHub 私有仓库云同步设置 ===== -->
+  <!-- ===== 数据与同步中心（本地文件夹 / GitHub 云同步 / 备份与启动器） ===== -->
   <div id="ghSyncModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[86vh]">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div>
-          <h3 class="font-bold text-slate-800 text-[15px]">☁️ GitHub 私有仓库云同步</h3>
-          <p class="text-[12px] text-slate-400 mt-0.5">配置仅保存在当前浏览器本地，不会写入数据文件；停手 15 秒自动合并推送</p>
+          <h3 class="font-bold text-slate-800 text-[15px]">⚙ 数据与同步中心</h3>
+          <p class="text-[12px] text-slate-400 mt-0.5">本地文件夹与 GitHub 均在停手 15 秒后自动合并保存，也可随时点右上角立即同步</p>
         </div>
         <button onclick="closeGitHubSyncModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
       </div>
-      <div class="p-5 space-y-3 text-[13px] overflow-y-auto flex-1">
+      <div class="p-5 space-y-3.5 text-[13px] overflow-y-auto flex-1">
+        <!-- Section 1: Local Data Folder -->
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-slate-700 text-[12.5px]">📂 本地数据文件夹（电脑端）</span>
+            <span id="saveStatusIndicator" class="text-emerald-700 font-medium flex items-center gap-1.5 text-[12px]">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 已存到浏览器
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="handleLocalDirBtnClick()" id="bindLocalJsonBtn" class="btn-primary flex-1 min-w-0 py-1.5 px-3 rounded-xl text-[12.5px] font-semibold text-white flex items-center justify-center gap-1.5 truncate">
+              <span>📂 关联本地数据文件夹</span>
+            </button>
+            <button onclick="bindDirectLocalJsonFile()" id="changeLocalDirBtn" class="hidden btn-soft px-2.5 py-1.5 rounded-xl text-[12px] font-medium text-slate-600 shrink-0">更换</button>
+          </div>
+        </div>
+
+        <!-- Section 2: GitHub Cloud Sync -->
         <div class="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2">
-          <label for="ghEnabledInput" class="font-semibold text-slate-700 cursor-pointer">启用 GitHub 自动同步</label>
+          <label for="ghEnabledInput" class="font-bold text-slate-700 cursor-pointer">☁️ 启用 GitHub 私有仓库自动同步</label>
           <input id="ghEnabledInput" type="checkbox" class="rounded text-indigo-600" />
         </div>
         <div class="grid grid-cols-2 gap-2.5">
@@ -1249,6 +1250,16 @@
             <button type="button" onclick="forcePushToGitHub()" class="btn-soft px-2.5 py-1 rounded-lg text-[12px] font-medium text-amber-700">⬆ 强制推送覆盖</button>
           </div>
         </div>
+
+        <!-- Section 3: Backup & Desktop Launcher Tools -->
+        <div class="pt-2.5 border-t border-slate-100 space-y-2">
+          <div class="text-[12px] font-semibold text-slate-500">🧰 备份与桌面工具</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" onclick="exportBackupJsonFile()" class="btn-soft py-1.5 px-2 rounded-xl text-[12px] font-medium text-slate-700 text-center">⬇ 导出备份</button>
+            <button type="button" onclick="importFromBackupFile()" class="btn-soft py-1.5 px-2 rounded-xl text-[12px] font-medium text-slate-700 text-center">⬆ 导入备份</button>
+            <button type="button" id="edgeAppLauncherBtn" onclick="downloadEdgeAppLauncher()" class="btn-soft py-1.5 px-2 rounded-xl text-[12px] font-medium text-indigo-700 text-center">🖥️ Edge启动器</button>
+          </div>
+        </div>
       </div>
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
         <button onclick="closeGitHubSyncModal()" class="btn-soft px-4 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium">取消</button>
@@ -1281,7 +1292,7 @@
               <option value="amber">琥珀橙</option>
               <option value="indigo" selected>靛蓝</option>
               <option value="emerald">翠绿</option>
-              <option value="cyan">青色</option>
+              <option value="cyan">天蓝</option>
             </select>
           </div>
         </div>
@@ -1297,6 +1308,70 @@
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
         <button onclick="closeCountdownModal()" class="btn-soft px-4 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium">取消</button>
         <button onclick="submitCountdownForm()" class="btn-primary px-4 py-1.5 rounded-xl text-white text-[13px] font-semibold">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 📖 使用指南弹窗 ===== -->
+  <div id="helpGuideModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[84vh] overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div>
+          <h3 class="font-bold text-slate-800 text-[15px]">📖 LLY 科研脉络 · 使用指南</h3>
+          <p class="text-[12px] text-slate-400 mt-0.5">从左到右细分脉络 · 四象限自由推进 · 本地与 GitHub 双端同步</p>
+        </div>
+        <button onclick="closeHelpGuideModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
+      </div>
+      <div class="p-5 overflow-y-auto flex-1 space-y-4 text-[13px] text-slate-700 leading-relaxed">
+        <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/70 space-y-1.5">
+          <div class="font-bold text-indigo-900 text-[13.5px]">🧭 1. 脉络导图操作</div>
+          <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
+            <li><strong>新建与细分</strong>：双击画布空白处新建卡片；按住卡片右侧的<strong>靛蓝圆点</strong>拖向另一张卡片建立连线，或拖到空白处松手直接新建下游细分卡片。</li>
+            <li><strong>快捷编辑</strong>：双击卡片标题原地改名；点击卡片里的「待办 / 进行 / 完成」或「+ 标签」一键切换；点右上角 ✎ 展开侧栏写备注和子步骤；右键任意卡片、连线或课题有快捷菜单。</li>
+            <li><strong>总览层级</strong>：在「全部主题」下可通过工具栏 <strong>总览：2级 | 3级 | 全部</strong> 折叠过深的细枝，点击卡片右侧的 <strong>+N</strong> 徽章可直接进入该课题查看全貌。</li>
+            <li><strong>视野控制</strong>：鼠标滚轮上下平移画布，<strong>Ctrl + 滚轮</strong>缩放，点「自动整理脉络」一键排版，点「适应视图」全景缩放到视口内。</li>
+          </ul>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+          <div class="font-bold text-slate-800 text-[13.5px]">🎨 2. 连线与日期颜色说明</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[12.5px]">
+            <div class="space-y-1">
+              <div class="font-semibold text-slate-600">连线状态（跟随下游卡片）</div>
+              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-indigo-600"></span><span><strong>靛蓝流动线</strong>：下游任务正在「进行中」</span></div>
+              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-emerald-600"></span><span><strong>森林绿实线</strong>：下游任务「已完成」</span></div>
+              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-slate-400"></span><span><strong>冷灰实线</strong>：下游任务处于「待办」</span></div>
+            </div>
+            <div class="space-y-1">
+              <div class="font-semibold text-slate-600">卡片右下角日期（二选一）</div>
+              <div><span class="text-slate-400 font-mono">26.11.20</span> 淡灰无底色 = 创建日期</div>
+              <div><span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-semibold font-mono">26.11.19</span> 红底 = 已逾期截止日</div>
+              <div><span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold font-mono">26.11.23</span> 橙底 = 今明到期 · <span class="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 font-mono">蓝底</span> 7天内 · <span class="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-mono">天蓝底</span> 7天后</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200/70 space-y-1.5">
+          <div class="font-bold text-emerald-900 text-[13.5px]">📋 3. 近期看板 · 🍅 番茄钟 · 📅 倒计日</div>
+          <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
+            <li><strong>四象限看板</strong>：导图不锁死前后置，看板按 <strong>重点攻坚 / 正在推进 / 常规待办 / 已完成</strong> 分类；点左上角统计数字可单框聚焦查看。</li>
+            <li><strong>🍅 番茄钟</strong>：独立专注页，切回导图或看板时会在后台继续计时，浏览器标签页同步显示剩余时间，到点自动响柔和铃声。</li>
+            <li><strong>📅 倒计日</strong>：独立记录截稿、答辩、组会等大节点，<strong>自动随本地文件夹和 GitHub 同步到手机端</strong>。</li>
+          </ul>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+          <div class="font-bold text-amber-900 text-[13.5px]">☁️ 4. 数据安全、归档与双端同步</div>
+          <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
+            <li><strong>自动防抖保存</strong>：所有改动秒存浏览器缓存，停手 <strong>15 秒</strong>后自动合并写入本地文件夹并推送 GitHub；随时可点右上角同步按钮或按 <strong>Ctrl + S</strong> 立即同步。</li>
+            <li><strong>数据与同步中心</strong>：点右上角 <strong>⚙ 数据</strong> 可管理本地数据文件夹、配置 GitHub 同步口令、导出/导入备份及生成 Edge 桌面启动器。</li>
+            <li><strong>归档与回收站</strong>：结题或暂不做的课题可整课题 <strong>📦 归档</strong>（随时可在画布回头查看或恢复）；误删卡片可在 <strong>🗑 回收站</strong> 无损还原上下游连线。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <span class="text-[12px] text-slate-400">快捷键：Ctrl+Enter 新增工作 · Ctrl+S 立即同步 · Esc 关闭弹窗</span>
+        <button onclick="closeHelpGuideModal()" class="btn-primary px-4 py-1.5 rounded-xl text-white text-[13px] font-semibold">知道了</button>
       </div>
     </div>
   </div>
@@ -1327,11 +1402,11 @@
     const CURRENT_SCHEMA_VERSION = '3.0';
 
     const COLOR_PALETTE = {
-      indigo: { bg: 'bg-indigo-50', border: 'border-indigo-400', badge: 'bg-indigo-600 text-white', lightBadge: 'bg-indigo-100 text-indigo-800', stroke: '#4f46e5', zoneBg: 'rgba(238, 242, 255, 0.42)', zoneBorder: 'rgba(129, 140, 248, 0.42)' },
-      emerald: { bg: 'bg-emerald-50', border: 'border-emerald-400', badge: 'bg-emerald-600 text-white', lightBadge: 'bg-emerald-100 text-emerald-800', stroke: '#059669', zoneBg: 'rgba(236, 253, 245, 0.42)', zoneBorder: 'rgba(52, 211, 153, 0.42)' },
-      amber: { bg: 'bg-amber-50', border: 'border-amber-400', badge: 'bg-amber-600 text-white', lightBadge: 'bg-amber-100 text-amber-800', stroke: '#d97706', zoneBg: 'rgba(255, 251, 235, 0.45)', zoneBorder: 'rgba(251, 191, 36, 0.48)' },
-      rose: { bg: 'bg-rose-50', border: 'border-rose-400', badge: 'bg-rose-600 text-white', lightBadge: 'bg-rose-100 text-rose-800', stroke: '#e11d48', zoneBg: 'rgba(255, 241, 242, 0.42)', zoneBorder: 'rgba(251, 113, 133, 0.42)' },
-      cyan: { bg: 'bg-cyan-50', border: 'border-cyan-400', badge: 'bg-cyan-600 text-white', lightBadge: 'bg-cyan-100 text-cyan-800', stroke: '#0891b2', zoneBg: 'rgba(236, 254, 255, 0.45)', zoneBorder: 'rgba(34, 211, 238, 0.45)' }
+      indigo: { bg: 'bg-indigo-50', border: 'border-indigo-400', badge: 'bg-indigo-600 text-white', lightBadge: 'bg-indigo-100 text-indigo-800', stroke: '#4f46e5', zoneBg: 'rgba(238, 242, 255, 0.28)', zoneBorder: 'rgba(129, 140, 248, 0.36)' },
+      emerald: { bg: 'bg-emerald-50', border: 'border-emerald-500', badge: 'bg-emerald-600 text-white', lightBadge: 'bg-emerald-100 text-emerald-800', stroke: '#059669', zoneBg: 'rgba(236, 253, 245, 0.26)', zoneBorder: 'rgba(16, 185, 129, 0.34)' },
+      amber: { bg: 'bg-amber-50', border: 'border-amber-400', badge: 'bg-amber-600 text-white', lightBadge: 'bg-amber-100 text-amber-800', stroke: '#d97706', zoneBg: 'rgba(255, 251, 235, 0.32)', zoneBorder: 'rgba(245, 158, 11, 0.36)' },
+      rose: { bg: 'bg-rose-50', border: 'border-rose-400', badge: 'bg-rose-600 text-white', lightBadge: 'bg-rose-100 text-rose-800', stroke: '#e11d48', zoneBg: 'rgba(255, 241, 242, 0.28)', zoneBorder: 'rgba(244, 63, 94, 0.34)' },
+      cyan: { bg: 'bg-sky-50', border: 'border-sky-400', badge: 'bg-sky-600 text-white', lightBadge: 'bg-sky-100 text-sky-800', stroke: '#0284c7', zoneBg: 'rgba(240, 249, 255, 0.30)', zoneBorder: 'rgba(56, 189, 248, 0.36)' }
     };
 
     // Helper for relative ISO dates so demo data and date calculations are always accurate
@@ -1504,7 +1579,7 @@
         }
         return {
           label: shortDue,
-          badgeClass: 'text-cyan-800 bg-cyan-100/80 font-medium px-1.5 py-0.2 rounded tabular-nums',
+          badgeClass: 'text-sky-800 bg-sky-100 font-medium px-1.5 py-0.2 rounded tabular-nums',
           title: `截止日期：${rawDue}（${diffDays} 天后）`,
           sortKey: diffDays,
           isDue: true
@@ -1784,9 +1859,17 @@
       catDragId: null,
       catDragOverId: null,
       catDragPos: 'before',
-      // 课题归档预览
+      // 课题归档预览与总览深度（2 | 3 | 'all'，默认 3 级）
       viewingArchivedCatId: null,
       archiveSearchQuery: '',
+      overviewDepth: (() => {
+        try {
+          const v = localStorage.getItem('lly_overview_depth_v1');
+          if (v === '2') return 2;
+          if (v === 'all') return 'all';
+        } catch (e) {}
+        return 3;
+      })(),
       // GitHub 云同步状态
       ghConfig: null,
       ghLastSha: '',
@@ -3312,7 +3395,81 @@
       };
     }
 
+    function computeSameCatDepthMap(catId) {
+      const catTasks = appState.data.tasks.filter(t => t.categoryId === catId);
+      const idSet = new Set(catTasks.map(t => t.id));
+      const memo = new Map();
+      const depthOf = (t, visiting = new Set()) => {
+        if (memo.has(t.id)) return memo.get(t.id);
+        if (visiting.has(t.id)) return 1;
+        visiting.add(t.id);
+        const parents = getTaskDeps(t).map(id => getTaskById(id)).filter(p => p && idSet.has(p.id));
+        let d = 1;
+        parents.forEach(p => {
+          d = Math.max(d, depthOf(p, new Set(visiting)) + 1);
+        });
+        memo.set(t.id, d);
+        return d;
+      };
+      catTasks.forEach(t => depthOf(t));
+      return memo;
+    }
+
+    function countHiddenDescendantsInOverview(taskId, visibleSet) {
+      const visited = new Set();
+      const stack = getDownstreamTasks(taskId).map(c => c.id);
+      let count = 0;
+      while (stack.length > 0) {
+        const cur = stack.pop();
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        const t = getTaskById(cur);
+        if (!t || isCategoryArchived(t.categoryId)) continue;
+        if (!visibleSet.has(cur)) count++;
+        getDownstreamTasks(cur).forEach(c => { if (!visited.has(c.id)) stack.push(c.id); });
+      }
+      return count;
+    }
+
+    function isOverviewDepthTrimmed() {
+      return !appState.viewingArchivedCatId
+        && appState.selectedCategoryId === 'all'
+        && appState.overviewDepth !== 'all'
+        && appState.searchQuery.trim() === '';
+    }
+
+    function setOverviewDepth(depth) {
+      appState.overviewDepth = depth === 'all' ? 'all' : Number(depth);
+      try { localStorage.setItem('lly_overview_depth_v1', String(appState.overviewDepth)); } catch (e) {}
+      renderAll();
+      centerVisibleGraphInViewport(false);
+    }
+
+    function syncOverviewDepthUI() {
+      const bar = document.getElementById('overviewDepthBar');
+      if (!bar) return;
+      const show = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all';
+      bar.classList.toggle('hidden', !show);
+      if (!show) return;
+      const d = appState.overviewDepth;
+      const activeCls = 'px-2 py-0.5 rounded-md font-semibold bg-white text-indigo-700 shadow-sm transition';
+      const idleCls = 'px-2 py-0.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition';
+      const b2 = document.getElementById('depthBtn2');
+      const b3 = document.getElementById('depthBtn3');
+      const bAll = document.getElementById('depthBtnAll');
+      if (b2) b2.className = d === 2 ? activeCls : idleCls;
+      if (b3) b3.className = d === 3 ? activeCls : idleCls;
+      if (bAll) bAll.className = d === 'all' ? activeCls : idleCls;
+    }
+
     function getFilteredTasks(forBoard = false) {
+      const trimDepth = !forBoard && isOverviewDepthTrimmed();
+      const depthLimit = trimDepth ? Number(appState.overviewDepth) : Infinity;
+      const depthCache = new Map();
+      const getDepth = (t) => {
+        if (!depthCache.has(t.categoryId)) depthCache.set(t.categoryId, computeSameCatDepthMap(t.categoryId));
+        return depthCache.get(t.categoryId).get(t.id) || 1;
+      };
       return appState.data.tasks.filter(t => {
         if (!forBoard && appState.viewingArchivedCatId) {
           if (t.categoryId !== appState.viewingArchivedCatId) return false;
@@ -3322,6 +3479,7 @@
             return false;
           }
         }
+        if (trimDepth && getDepth(t) > depthLimit) return false;
         if (appState.searchQuery.trim() !== '') {
           const q = appState.searchQuery.trim().toLowerCase();
           const inTitle = t.title.toLowerCase().includes(q);
@@ -3736,7 +3894,7 @@
             <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#4f46e5" />
           </marker>
           <marker id="arrow-done" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669" />
           </marker>
           <marker id="arrow-locked" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
             <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94a3b8" />
@@ -3766,9 +3924,11 @@
               ? `M ${x1} ${y1} L ${x2} ${y2}`
               : `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
             const isHubDoing = task.status === 'in_progress';
-            const strokeColor = task.status === 'done' ? '#10b981' : (isHubDoing ? '#4f46e5' : palette.stroke);
+            const isHubDone = task.status === 'done';
+            const strokeColor = isHubDone ? '#059669' : (isHubDoing ? '#4f46e5' : '#94a3b8');
+            const strokeW = isHubDoing ? '2.4' : (isHubDone ? '2.2' : '1.8');
             const hubAnimClass = isHubDoing ? 'edge-animated' : '';
-            pathsHtml += `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.85" class="${hubAnimClass}" />`;
+            pathsHtml += `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linecap="round" stroke-opacity="0.9" class="${hubAnimClass}" />`;
           }
         } else {
           visibleDeps.forEach(depId => {
@@ -3792,16 +3952,19 @@
             let marker = 'url(#arrow-locked)';
             let extraClass = '';
 
+            let strokeW = '1.8';
             if (task.status === 'done') {
-              stroke = '#10b981';
+              stroke = '#059669';
+              strokeW = '2.2';
               marker = 'url(#arrow-done)';
             } else if (task.status === 'in_progress') {
               stroke = '#4f46e5';
+              strokeW = '2.4';
               marker = 'url(#arrow-active)';
               extraClass = 'edge-animated';
             }
 
-            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" /></g>`;
+            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeW}" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" /></g>`;
           });
         }
       });
@@ -3869,13 +4032,17 @@
 
       ensureCanvasStageSize();
       const nodesContainer = document.getElementById('nodesContainer');
+      const zonesContainer = document.getElementById('zonesContainer');
       const filteredTasks = getFilteredTasks();
+      const visibleTaskIds = new Set(filteredTasks.map(t => t.id));
+      const trimmedOverview = isOverviewDepthTrimmed();
 
       const visibleCategories = getVisibleCanvasCategories();
 
+      let zonesHtml = '';
       let nodesHtml = '';
 
-      // 全览视图（全部主题且课题数 >= 2）下，为每个课题块绘制轻盈的分区底框，多行多列时边界一目了然
+      // 全览视图（全部主题且课题数 >= 2）下，将分区底框渲染在独立的底层 #zonesContainer (z-index: 1)，绝不遮挡任何卡片或连线
       if (!appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && visibleCategories.length >= 2) {
         visibleCategories.forEach(cat => {
           const catVisibleTasks = filteredTasks.filter(t => t.categoryId === cat.id);
@@ -3883,24 +4050,25 @@
           const rights = [cat.hubX + HUB_W].concat(catVisibleTasks.map(t => t.x + NODE_W));
           const tops = [cat.hubY].concat(catVisibleTasks.map(t => t.y));
           const bottoms = [cat.hubY + HUB_H].concat(catVisibleTasks.map(t => t.y + getNodeHeight(t)));
-          const padX = 12;
-          const padTop = 22;
-          const padBottom = 10;
+          const padX = 16;
+          const padTop = 30;
+          const padBottom = 14;
           const zx = Math.min(...lefts) - padX;
           const zy = Math.min(...tops) - padTop;
           const zw = Math.max(...rights) - Math.min(...lefts) + padX * 2;
           const zh = Math.max(...bottoms) - Math.min(...tops) + padTop + padBottom;
           const palette = COLOR_PALETTE[cat.color] || COLOR_PALETTE.indigo;
-          nodesHtml += `
+          zonesHtml += `
             <div class="absolute rounded-2xl pointer-events-none select-none"
-                 style="left: ${zx}px; top: ${zy}px; width: ${zw}px; height: ${zh}px; background: ${palette.zoneBg}; border: 1.5px dashed ${palette.zoneBorder}; z-index: 1;">
-              <span class="inline-block px-2 py-0.5 text-[11px] font-semibold rounded-tl-2xl rounded-br-xl ${palette.lightBadge} opacity-85">
+                 style="left: ${zx}px; top: ${zy}px; width: ${zw}px; height: ${zh}px; background: ${palette.zoneBg}; border: 1.5px dashed ${palette.zoneBorder};">
+              <span class="inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-tl-2xl rounded-br-xl ${palette.lightBadge}">
                 ${escapeHtml(cat.name)}
               </span>
             </div>
           `;
         });
       }
+      if (zonesContainer) zonesContainer.innerHTML = zonesHtml;
 
       // Uniform 176x76 Category Hub Card
       visibleCategories.forEach(cat => {
@@ -3959,15 +4127,16 @@
           ? `<span class="text-[10px] leading-4 ${dateBadge.badgeClass} shrink-0 whitespace-nowrap truncate max-w-[82px]" title="${escapeAttr(dateBadge.title)}">${escapeHtml(dateBadge.label)}</span>`
           : '';
 
+        const hiddenDescCount = trimmedOverview ? countHiddenDescendantsInOverview(task.id, visibleTaskIds) : 0;
         const cardBorderCls = isSnapTarget
           ? 'node-snap-target z-30'
           : (isSelected
               ? 'border-indigo-600 node-selected z-20'
               : (task.status === 'done'
-                  ? 'border-emerald-300 bg-emerald-50/20 opacity-85'
+                  ? 'border-emerald-400 bg-emerald-50/20 opacity-90 z-10'
                   : (task.status === 'in_progress'
-                      ? 'border-indigo-500 node-in-progress'
-                      : palette.border)));
+                      ? 'border-indigo-500 node-in-progress z-10'
+                      : palette.border + ' z-10')));
 
         const isInlineEditing = appState.inlineEditingTaskId === task.id;
         const titleContentHtml = isInlineEditing
@@ -4038,6 +4207,7 @@
               </button>
             </div>
             <div class="port-in-dot" title="前置接入点"></div>
+            ${hiddenDescCount > 0 ? `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); selectCategory('${task.categoryId}')" title="总览中已折叠后续 ${hiddenDescCount} 个细分节点，点击进入该课题展开全部" class="absolute -right-2 top-1.5 z-30 px-1.5 py-0.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold shadow-md leading-none">+${hiddenDescCount}</button>` : ''}
             <div class="port-out-dot" onmousedown="startPortWireDrag(event, '${task.id}')" title="按住蓝点拖向另一节点连线，或拖到空白处松手直接新建下一步"></div>
           </div>
         `;
@@ -4622,6 +4792,7 @@
       renderRecentTasksList();
       renderInspector();
       syncBoardModeButtons();
+      syncOverviewDepthUI();
       if (appState.currentView === 'countdown') renderCountdownView();
       if (appState.currentView === 'pomodoro') renderPomodoroView();
     }
@@ -5254,7 +5425,7 @@
     // Keyboard shortcuts (Ctrl+Enter 新建记录, Esc 关闭弹窗；Tab 交还浏览器)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        const anyModalOpen = ['newTaskModal', 'categoryModal', 'confirmActionModal', 'trashModal', 'archiveModal', 'ghSyncModal', 'countdownModal', 'deleteCatModal'].some(id => {
+        const anyModalOpen = ['newTaskModal', 'categoryModal', 'confirmActionModal', 'trashModal', 'archiveModal', 'ghSyncModal', 'countdownModal', 'helpGuideModal', 'deleteCatModal'].some(id => {
           const el = document.getElementById(id);
           return el && !el.classList.contains('hidden');
         });
@@ -5265,6 +5436,7 @@
         closeArchiveModal();
         closeGitHubSyncModal();
         closeCountdownModal();
+        closeHelpGuideModal();
         closeDeleteCatModal();
         if (!anyModalOpen && !appState.ctxMenuOpen && appState.inspectorOpen) {
           closeInspector();
@@ -6325,6 +6497,7 @@
         btn.innerHTML = '<span>📂 关联本地数据文件夹</span>';
         if (chgBtn) chgBtn.classList.add('hidden');
       }
+      if (typeof updateSyncButtonsUI === 'function') updateSyncButtonsUI();
     }
 
     function showDirBanner() {
@@ -6885,7 +7058,6 @@
 
     function updateSyncButtonsUI() {
       const btn = document.getElementById('syncNowBtn');
-      const sideBtn = document.getElementById('sidebarGhSyncBtn');
       const modalSt = document.getElementById('ghModalStatusText');
       const enabled = isGitHubSyncEnabled();
 
@@ -6902,22 +7074,15 @@
         } else if (enabled) {
           btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500 text-white text-[12.5px] font-medium flex items-center gap-1.5 transition';
           btn.innerHTML = '<span>☁️ 已同步</span>';
+        } else if (appState.dataDir && appState.dataDirNeedGrant) {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 border border-amber-400 text-white text-[12.5px] font-semibold flex items-center gap-1.5 transition';
+          btn.innerHTML = '<span>🔓 恢复本地授权</span>';
         } else if (appState.dataDir) {
-          btn.className = 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[12.5px] font-medium flex items-center gap-1.5 transition';
-          btn.innerHTML = '<span>💾 立即保存</span>';
+          btn.className = 'px-3 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500 text-white text-[12.5px] font-medium flex items-center gap-1.5 transition';
+          btn.innerHTML = '<span>💾 本地已同步</span>';
         } else {
           btn.className = 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-[12.5px] font-medium flex items-center gap-1.5 transition';
-          btn.innerHTML = '<span>☁️ 云同步</span>';
-        }
-      }
-
-      if (sideBtn) {
-        if (enabled) {
-          sideBtn.className = 'w-full py-1.5 px-3 rounded-xl text-[12px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-center gap-1.5 transition truncate';
-          sideBtn.innerHTML = '<span>☁️ GitHub: ' + escapeHtml(appState.ghConfig.repo) + '</span>';
-        } else {
-          sideBtn.className = 'btn-soft w-full py-1.5 px-3 rounded-xl text-[12.5px] font-semibold text-slate-700 flex items-center justify-center gap-1.5';
-          sideBtn.innerHTML = '<span>☁️ GitHub 云同步设置</span>';
+          btn.innerHTML = '<span>☁️ 同步设置</span>';
         }
       }
 
@@ -7228,6 +7393,10 @@
     async function syncNowAll() {
       clearTimeout(dirWriteTimer);
       clearTimeout(ghSyncTimer);
+      if (appState.dataDir && appState.dataDirNeedGrant) {
+        await resumeDataDir();
+        return;
+      }
       let didLocal = false;
       if (appState.dataDir) {
         didLocal = await flushDirWrite();
@@ -7777,6 +7946,20 @@
           </div>
         `;
       }).join('');
+    }
+
+    function openHelpGuideModal() {
+      const m = document.getElementById('helpGuideModal');
+      if (!m) return;
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeHelpGuideModal() {
+      const m = document.getElementById('helpGuideModal');
+      if (!m) return;
+      m.classList.add('hidden');
+      m.classList.remove('flex');
     }
 
     function escapeHtml(str) {
