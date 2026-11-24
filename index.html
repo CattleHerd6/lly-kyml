@@ -1334,7 +1334,7 @@
             <li><strong>新建与细分</strong>：双击画布空白处新建卡片；按住卡片右侧的<strong>靛蓝圆点</strong>拖向另一张卡片建立连线，或拖到空白处松手直接新建下游细分卡片。</li>
             <li><strong>快捷编辑</strong>：双击卡片标题原地改名；点击卡片里的「待办 / 进行 / 完成」或「+ 标签」一键切换；点右上角 ✎ 展开侧栏写备注和子步骤；右键任意卡片、连线或课题有快捷菜单。</li>
             <li><strong>总览层级</strong>：在「全部主题」下可通过工具栏 <strong>总览：2级 | 3级 | 全部</strong> 折叠过深的细枝，点击卡片右侧的 <strong>+N</strong> 徽章可直接进入该课题查看全貌。</li>
-            <li><strong>视野控制</strong>：鼠标滚轮上下平移画布，<strong>Ctrl + 滚轮</strong>缩放，点「自动整理脉络」一键排版，点「适应视图」全景缩放到视口内。</li>
+            <li><strong>视野控制</strong>：鼠标滚轮上下平移画布，<strong>Ctrl + 滚轮</strong>缩放，点「自动整理脉络」原地整理卡片（不跳视野，可点「撤销排版」一键还原），点「⌖ 回到起点」快速回到画布起点；深色主题卡片与任务卡片右侧蓝点均可拖出连线或拖到空白处新建卡片。</li>
           </ul>
         </div>
 
@@ -1816,6 +1816,7 @@
       editingCatId: null,
       listTab: 'soon',
       wiringFromTaskId: null,
+      wiringFromHubCatId: null,
       wiringTempPathD: '',
       wiringSnapTaskId: null,
       wiringGhostPoint: null,
@@ -2247,7 +2248,7 @@
         { icon: '➕', label: '在这里新增记录', action: () => createTaskAtCanvasPoint(x, y) },
         { sep: true },
         { icon: '🧭', label: '自动整理脉络', action: () => autoLayoutNodes(true) },
-        { icon: '📐', label: '适应视图', action: () => fitCanvasView() },
+        { icon: '⌖', label: '回到起点', action: () => resetCanvasPosition() },
         { sep: true },
         { icon: '🔍', label: '放大', action: () => zoomCanvas(0.1) },
         { icon: '🔎', label: '缩小', action: () => zoomCanvas(-0.1) }
@@ -2267,11 +2268,11 @@
       const hoveredNodeEl = el && el.closest ? el.closest('[data-node-id]') : null;
       if (hoveredNodeEl) {
         const hoveredId = hoveredNodeEl.getAttribute('data-node-id');
-        if (hoveredId && hoveredId !== fromId && !wouldCreateCycle(hoveredId, fromId)) {
+        if (hoveredId && (!fromId || (hoveredId !== fromId && !wouldCreateCycle(hoveredId, fromId)))) {
           return getTaskById(hoveredId);
         }
       }
-      const candidates = getFilteredTasks().filter(t => t.id !== fromId && !wouldCreateCycle(t.id, fromId));
+      const candidates = getFilteredTasks().filter(t => !fromId || (t.id !== fromId && !wouldCreateCycle(t.id, fromId)));
       let best = null;
       let bestDist = 34; // 34px 磁吸半径
       candidates.forEach(cand => {
@@ -2340,9 +2341,31 @@
         scheduleEdgesRender();
       };
 
+      const onTouchMove = (ev) => {
+        if (!ev.touches || ev.touches.length !== 1) return;
+        onMove({ clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY });
+      };
+      const onTouchEnd = (ev) => {
+        const t = (ev.changedTouches && ev.changedTouches[0]) || null;
+        if (!t) { cleanup(); appState.wiringFromTaskId = null; appState.wiringTempPathD = ''; renderEdgesOnly(); return; }
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        onUp({ clientX: t.clientX, clientY: t.clientY, target });
+      };
+      const onTouchCancel = () => {
+        cleanup();
+        appState.wiringFromTaskId = null;
+        appState.wiringTempPathD = '';
+        appState.wiringSnapTaskId = null;
+        appState.wiringGhostPoint = null;
+        renderEdgesOnly();
+      };
+
       const cleanup = () => {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
+        window.removeEventListener('touchcancel', onTouchCancel);
         window.removeEventListener('blur', cleanup);
         updateSnapTargetDomHighlight(null);
         if (appState.wiringCleanup === cleanup) appState.wiringCleanup = null;
@@ -2392,11 +2415,152 @@
 
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('touchend', onTouchEnd);
+      window.addEventListener('touchcancel', onTouchCancel);
       window.addEventListener('blur', cleanup);
       appState.wiringCleanup = cleanup;
       if (announce) {
         showToast('🔗 连线模式：移到目标卡片松手即可连线，移到空白处松手可新建下一步');
       }
+    }
+
+    // 从深色课题枢纽卡片右侧蓝点拖出连线：拖到空白处松手新建首层卡片，拖到已有卡片设为本课题首层
+    function beginHubWireSession(fromCatId, startClientX = null, startClientY = null) {
+      const cat = getCategoryById(fromCatId);
+      if (!cat) return;
+      if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
+      appState.wiringFromTaskId = null;
+      appState.wiringFromHubCatId = fromCatId;
+      appState.wiringSnapTaskId = null;
+      appState.wiringGhostPoint = null;
+      const x1 = cat.hubX + HUB_W;
+      const y1 = cat.hubY + 38;
+
+      const onMove = (ev) => {
+        const stage = document.getElementById('canvasStage');
+        if (!stage) return;
+        const stageRect = stage.getBoundingClientRect();
+        const rawX = (ev.clientX - stageRect.left) / appState.zoom;
+        const rawY = (ev.clientY - stageRect.top) / appState.zoom;
+        const snapTarget = findMagneticSnapTarget(null, ev.clientX, ev.clientY, rawX, rawY);
+
+        let x2 = rawX;
+        let y2 = rawY;
+        if (snapTarget) {
+          appState.wiringSnapTaskId = snapTarget.id;
+          appState.wiringGhostPoint = null;
+          x2 = snapTarget.x;
+          y2 = snapTarget.y + PORT_OFFSET_Y;
+        } else {
+          appState.wiringSnapTaskId = null;
+          const distFromPort = Math.hypot(rawX - x1, rawY - y1);
+          if (distFromPort >= 28) {
+            appState.wiringGhostPoint = {
+              x: Math.round(rawX),
+              y: Math.round(rawY - PORT_OFFSET_Y)
+            };
+          } else {
+            appState.wiringGhostPoint = null;
+          }
+        }
+        updateSnapTargetDomHighlight(appState.wiringSnapTaskId);
+        const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
+        appState.wiringTempPathD = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+        scheduleEdgesRender();
+      };
+
+      const onTouchMove = (ev) => {
+        if (!ev.touches || ev.touches.length !== 1) return;
+        onMove({ clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY });
+      };
+
+      const cleanup = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
+        window.removeEventListener('touchcancel', onTouchCancel);
+        window.removeEventListener('blur', cleanup);
+        updateSnapTargetDomHighlight(null);
+        if (appState.wiringCleanup === cleanup) appState.wiringCleanup = null;
+      };
+
+      const onUp = (ev) => {
+        cleanup();
+        const catId = appState.wiringFromHubCatId;
+        const snappedId = appState.wiringSnapTaskId;
+        const ghostPt = appState.wiringGhostPoint;
+        appState.wiringFromHubCatId = null;
+        appState.wiringTempPathD = '';
+        appState.wiringSnapTaskId = null;
+        appState.wiringGhostPoint = null;
+
+        const targetCat = getCategoryById(catId);
+        if (!targetCat) { renderEdgesOnly(); return; }
+
+        const stage = document.getElementById('canvasStage');
+        const stageRect = stage ? stage.getBoundingClientRect() : null;
+        const rawX = stageRect ? (ev.clientX - stageRect.left) / appState.zoom : x1;
+        const rawY = stageRect ? (ev.clientY - stageRect.top) / appState.zoom : y1;
+
+        const finalSnap = snappedId ? getTaskById(snappedId) : findMagneticSnapTarget(null, ev.clientX, ev.clientY, rawX, rawY);
+        if (finalSnap) {
+          const oldCatId = finalSnap.categoryId;
+          const oldDeps = getTaskDeps(finalSnap);
+          const sameCatDeps = oldDeps.filter(depId => {
+            const p = getTaskById(depId);
+            return p && p.categoryId === catId;
+          });
+          if (oldCatId === catId && sameCatDeps.length === 0) {
+            renderEdgesOnly();
+            showToast(`「${finalSnap.title.slice(0, 12)}」已是「${targetCat.name}」的首层节点`);
+            return;
+          }
+          finalSnap.categoryId = catId;
+          finalSnap.deps = oldDeps.filter(depId => {
+            const p = getTaskById(depId);
+            return p && p.categoryId !== catId && p.categoryId !== oldCatId;
+          });
+          finalSnap.parentId = finalSnap.deps[0] || null;
+          saveState();
+          renderAll();
+          showToast(`✓ 已将「${finalSnap.title.slice(0, 12)}」设为「${targetCat.name}」首层节点`);
+          return;
+        }
+
+        const inViewport = ev.target && ev.target.closest && ev.target.closest('#canvasViewport');
+        const distFromPort = Math.hypot(rawX - x1, rawY - y1);
+        if (inViewport && (ghostPt || distFromPort >= 28)) {
+          const dropPt = ghostPt || { x: Math.round(rawX), y: Math.round(rawY - PORT_OFFSET_Y) };
+          openNewTaskModal(null, targetCat.id, dropPt, true);
+          return;
+        }
+        renderEdgesOnly();
+      };
+
+      const onTouchEnd = (ev) => {
+        const t = (ev.changedTouches && ev.changedTouches[0]) || null;
+        if (!t) { cleanup(); appState.wiringFromHubCatId = null; appState.wiringTempPathD = ''; renderEdgesOnly(); return; }
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        onUp({ clientX: t.clientX, clientY: t.clientY, target });
+      };
+      const onTouchCancel = () => {
+        cleanup();
+        appState.wiringFromHubCatId = null;
+        appState.wiringTempPathD = '';
+        appState.wiringSnapTaskId = null;
+        appState.wiringGhostPoint = null;
+        renderEdgesOnly();
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('touchend', onTouchEnd);
+      window.addEventListener('touchcancel', onTouchCancel);
+      window.addEventListener('blur', cleanup);
+      appState.wiringCleanup = cleanup;
     }
 
     // 从某个节点发起连线（进入"等待选择目标"模式）
@@ -2908,7 +3072,7 @@
       const cats = getActiveCategories();
       if (cats.length === 0) return;
       const CAT_GAP_X = 64;
-      const CAT_GAP_Y = 36;
+      const CAT_GAP_Y = 48;
       const START_X = 60;
       const START_Y = 60;
 
@@ -2957,7 +3121,7 @@
       blocks.forEach((b, idx) => {
         if (idx > 0 && (cursorX - START_X) + b.width > MAX_ROW_W) {
           cursorX = START_X;
-          cursorY += rowMaxH + CAT_GAP_Y + 12;
+          cursorY += rowMaxH + CAT_GAP_Y + 16;
           rowMaxH = 0;
         }
         const dx = Math.round(cursorX - b.left);
@@ -3476,7 +3640,7 @@
     }
 
     function getFilteredTasks(forBoard = false) {
-      const trimDepth = !forBoard && isOverviewDepthTrimmed();
+      const trimDepth = !forBoard && isOverviewDepthTrimmed() && appState.searchQuery.trim() === '';
       const depthLimit = trimDepth ? Number(appState.overviewDepth) : Infinity;
       const depthCache = new Map();
       const getDepth = (t) => {
@@ -3993,7 +4157,9 @@
       });
 
       let wireHtml = '';
-      if (appState.wiringFromTaskId && appState.wiringTempPathD) {
+      if ((appState.wiringFromTaskId || appState.wiringFromHubCatId) && appState.wiringTempPathD) {
+        const isFromHub = Boolean(appState.wiringFromHubCatId);
+        const hubCat = isFromHub ? getCategoryById(appState.wiringFromHubCatId) : null;
         const isSnapped = Boolean(appState.wiringSnapTaskId);
         const strokeColor = isSnapped ? '#10b981' : '#4f46e5';
         const markerUrl = isSnapped ? 'url(#arrow-done)' : 'url(#arrow-active)';
@@ -4001,11 +4167,12 @@
         if (appState.wiringGhostPoint && !isSnapped) {
           const gx = appState.wiringGhostPoint.x;
           const gy = appState.wiringGhostPoint.y;
+          const ghostText = isFromHub ? '+ 松手在此新建首层卡片' : '+ 松手在此新建下一步';
           wireHtml += `
             <g class="pointer-events-none">
               <rect x="${gx}" y="${gy}" width="${NODE_W}" height="${NODE_H}" rx="12" fill="rgba(238, 242, 255, 0.86)" stroke="#6366f1" stroke-width="2" stroke-dasharray="6 4" />
               <circle cx="${gx}" cy="${gy + PORT_OFFSET_Y}" r="5.5" fill="#4f46e5" stroke="#ffffff" stroke-width="2" />
-              <text x="${gx + NODE_W / 2}" y="${gy + PORT_OFFSET_Y - 4}" text-anchor="middle" fill="#4338ca" font-size="12" font-weight="700">+ 松手在此新建下一步</text>
+              <text x="${gx + NODE_W / 2}" y="${gy + PORT_OFFSET_Y - 4}" text-anchor="middle" fill="#4338ca" font-size="12" font-weight="700">${ghostText}</text>
               <text x="${gx + NODE_W / 2}" y="${gy + PORT_OFFSET_Y + 14}" text-anchor="middle" fill="#6366f1" font-size="10.5">自动连线并弹出卡片设置</text>
             </g>
           `;
@@ -4014,16 +4181,20 @@
           if (snapTask) {
             const sx = snapTask.x;
             const sy = snapTask.y - 12;
+            const snapLabel = isFromHub && hubCat
+              ? `🔗 松手设为「${escapeHtml(hubCat.name.slice(0, 7))}」首层`
+              : `🔗 松手连接到「${escapeHtml(snapTask.title.slice(0, 8))}」`;
             wireHtml += `
               <g class="pointer-events-none">
-                <rect x="${sx}" y="${sy - 20}" width="176" height="20" rx="6" fill="#059669" />
-                <text x="${sx + 88}" y="${sy - 6}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="600">🔗 松手连接到「${escapeHtml(snapTask.title.slice(0, 8))}」</text>
+                <rect x="${sx}" y="${sy - 20}" width="184" height="20" rx="6" fill="#059669" />
+                <text x="${sx + 92}" y="${sy - 6}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="600">${snapLabel}</text>
               </g>
             `;
           }
         }
       } else if (appState.pendingNewTaskFromWire && appState.pendingNewTaskPoint) {
         const parentSelect = document.getElementById('inputTaskParent');
+        const catSelect = document.getElementById('inputTaskCategory');
         const pId = parentSelect ? parentSelect.value : null;
         const pTask = pId ? getTaskById(pId) : null;
         const gx = appState.pendingNewTaskPoint.x;
@@ -4036,6 +4207,17 @@
           const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
           const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
           wireHtml += `<path d="${d}" fill="none" stroke="#4f46e5" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#arrow-active)" />`;
+        } else if (catSelect && catSelect.value) {
+          const hCat = getCategoryById(catSelect.value);
+          if (hCat) {
+            const x1 = hCat.hubX + HUB_W;
+            const y1 = hCat.hubY + 38;
+            const x2 = gx;
+            const y2 = gy + PORT_OFFSET_Y;
+            const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
+            const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+            wireHtml += `<path d="${d}" fill="none" stroke="#4f46e5" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#arrow-active)" />`;
+          }
         }
         wireHtml += `
           <g class="pointer-events-none">
@@ -4111,6 +4293,7 @@
               <span class="truncate max-w-[105px]">${escapeHtml(cat.target || '课题脉络')}</span>
               <span class="shrink-0">${doneCount}/${catTasks.length}</span>
             </div>
+            <div class="port-out-dot" onmousedown="startHubPortWireDrag(event, '${cat.id}')" ontouchstart="startHubPortWireTouch(event, '${cat.id}')" title="按住蓝点拖到空白处松手新建首层卡片，或拖到已有卡片设为本课题首层"></div>
           </div>
         `;
       });
@@ -4231,7 +4414,7 @@
             </div>
             <div class="port-in-dot" title="前置接入点"></div>
             ${hiddenDescCount > 0 ? `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); selectCategory('${task.categoryId}')" title="总览中已折叠后续 ${hiddenDescCount} 个细分节点，点击进入该课题展开全部" class="absolute -right-2 top-1.5 z-30 px-1.5 py-0.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold shadow-md leading-none">+${hiddenDescCount}</button>` : ''}
-            <div class="port-out-dot" onmousedown="startPortWireDrag(event, '${task.id}')" title="按住蓝点拖向另一节点连线，或拖到空白处松手直接新建下一步"></div>
+            <div class="port-out-dot" onmousedown="startPortWireDrag(event, '${task.id}')" ontouchstart="startPortWireTouch(event, '${task.id}')" title="按住蓝点拖向另一节点连线，或拖到空白处松手直接新建下一步"></div>
           </div>
         `;
       });
@@ -5199,7 +5382,7 @@
     // =========================================================================
     function isInteractiveChildControl(target) {
       if (!target || !target.closest) return false;
-      return Boolean(target.closest('button, input, select, textarea, label, a'));
+      return Boolean(target.closest('button, input, select, textarea, label, a, .port-out-dot'));
     }
 
     function beginDragSession(clientX, clientY, el, taskId, hubId) {
@@ -5447,14 +5630,16 @@
 
     window.addEventListener('mouseup', finishDragOrPan);
     window.addEventListener('touchend', finishDragOrPan);
+    window.addEventListener('touchcancel', finishDragOrPan);
     window.addEventListener('blur', finishDragOrPan);
 
     // Keyboard shortcuts (Ctrl+Enter 新建记录, Esc 关闭弹窗；Tab 交还浏览器)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (appState.wiringFromTaskId) {
+        if (appState.wiringFromTaskId || appState.wiringFromHubCatId) {
           if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
           appState.wiringFromTaskId = null;
+          appState.wiringFromHubCatId = null;
           appState.wiringTempPathD = '';
           appState.wiringSnapTaskId = null;
           appState.wiringGhostPoint = null;
@@ -5529,11 +5714,17 @@
       (appState.data.tasks || []).forEach(t => {
         if (snap.tasks[t.id]) { t.x = snap.tasks[t.id].x; t.y = snap.tasks[t.id].y; }
       });
+      if (typeof snap.panX === 'number' && typeof snap.panY === 'number') {
+        appState.panOffsetX = snap.panX;
+        appState.panOffsetY = snap.panY;
+        if (typeof snap.zoom === 'number') appState.zoom = snap.zoom;
+      }
       const btn = document.getElementById('undoLayoutBtn');
       if (btn) btn.classList.add('hidden');
       saveState();
       renderGraphCanvas();
-      showToast('↩ 已恢复自动整理前的卡片坐标');
+      applyStageTransform();
+      showToast('↩ 已原地恢复自动整理前的卡片位置');
     }
 
     function autoLayoutNodes(showMsg = true, silentInit = false) {
@@ -5542,7 +5733,13 @@
         const tasksSnap = {};
         (appState.data.categories || []).forEach(c => { catsSnap[c.id] = { x: c.hubX, y: c.hubY }; });
         (appState.data.tasks || []).forEach(t => { tasksSnap[t.id] = { x: t.x, y: t.y }; });
-        _lastLayoutSnapshot = { cats: catsSnap, tasks: tasksSnap };
+        _lastLayoutSnapshot = {
+          cats: catsSnap,
+          tasks: tasksSnap,
+          panX: appState.panOffsetX,
+          panY: appState.panOffsetY,
+          zoom: appState.zoom
+        };
         const btn = document.getElementById('undoLayoutBtn');
         if (btn) btn.classList.remove('hidden');
       }
@@ -5553,6 +5750,41 @@
       const targetCategories = getVisibleCanvasCategories();
       // 全部主题预览下自动采用紧凑间距系数，大幅压缩横向与纵向跨度；单课题视图保持舒展间距
       const isCompactOverview = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && targetCategories.length >= 2;
+
+      // 记录整理前的锚点，保证单课题整理和全部主题整理都不会让视野乱跳！
+      const singleCatAnchor = (!silentInit && targetCategories.length === 1 && Number.isFinite(targetCategories[0].hubX) && Number.isFinite(targetCategories[0].hubY))
+        ? { catId: targetCategories[0].id, hubX: targetCategories[0].hubX, hubY: targetCategories[0].hubY }
+        : null;
+      let overviewAnchor = null;
+      if (!silentInit && isCompactOverview) {
+        const vp = document.getElementById('canvasViewport');
+        const vpW = (vp && vp.clientWidth) || 1000;
+        const vpH = (vp && vp.clientHeight) || 700;
+        const z = appState.zoom || 1;
+        const cx = vpW / 2;
+        const cy = vpH / 2;
+        let bestCat = null;
+        let bestDist = Infinity;
+        targetCategories.forEach(c => {
+          if (!Number.isFinite(c.hubX) || !Number.isFinite(c.hubY)) return;
+          const ct = appState.data.tasks.filter(t => t.categoryId === c.id);
+          const minX = Math.min(c.hubX, ...ct.map(t => t.x));
+          const maxX = Math.max(c.hubX + HUB_W, ...ct.map(t => t.x + NODE_W));
+          const minY = Math.min(c.hubY, ...ct.map(t => t.y));
+          const maxY = Math.max(c.hubY + HUB_H, ...ct.map(t => t.y + getNodeHeight(t)));
+          const sx = ((minX + maxX) / 2) * z + appState.panOffsetX;
+          const sy = ((minY + maxY) / 2) * z + appState.panOffsetY;
+          const d = Math.hypot(sx - cx, sy - cy);
+          if (d < bestDist) { bestDist = d; bestCat = c; }
+        });
+        if (bestCat) {
+          overviewAnchor = {
+            cat: bestCat,
+            screenX: bestCat.hubX * z + appState.panOffsetX,
+            screenY: bestCat.hubY * z + appState.panOffsetY
+          };
+        }
+      }
       const LEVEL_GAP_X = isCompactOverview ? 296 : 312;     // 层间水平步长（卡片宽 228，留出 68~84px 舒展连线区）
       const SIBLING_GAP_Y = isCompactOverview ? 14 : 18;     // 同父兄弟节点垂直间距
       const BRANCH_GAP_Y = isCompactOverview ? 22 : 30;      // 不同根支线垂直间距
@@ -5785,14 +6017,35 @@
         currentCatTopY = maxTaskBottom + CAT_GAP_Y;
       });
 
-      // 多课题全览下，将排好内部子树的各个课题块排成多行多列矩阵，避免单列过长看不清
+      // 单课题整理：把整棵树平移回原来的主题枢纽坐标，视野纹丝不动，且切回「全部主题」绝不会压到其他课题上！
+      if (singleCatAnchor) {
+        const cat = targetCategories[0];
+        const dx = Math.round(singleCatAnchor.hubX - cat.hubX);
+        const dy = Math.round(singleCatAnchor.hubY - cat.hubY);
+        if (dx !== 0 || dy !== 0) {
+          cat.hubX += dx;
+          cat.hubY += dy;
+          appState.data.tasks.filter(t => t.categoryId === cat.id).forEach(t => {
+            t.x += dx;
+            t.y += dy;
+          });
+        }
+      }
+
+      // 多课题全览下，将排好内部子树的各个课题块排成限宽纵向行矩阵，并保持当前盯着看的主题枢纽屏幕位置不动
       if (!appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && getActiveCategories().length >= 2) {
         syncHubPositions();
+        if (overviewAnchor && overviewAnchor.cat) {
+          const z = appState.zoom || 1;
+          appState.panOffsetX = Math.round(overviewAnchor.screenX - overviewAnchor.cat.hubX * z);
+          appState.panOffsetY = Math.round(overviewAnchor.screenY - overviewAnchor.cat.hubY * z);
+        }
       }
 
       if (!silentInit) {
         saveState();
         renderGraphCanvas();
+        applyStageTransform();
       }
       if (showMsg) showToast('✨ 已整理卡片坐标（保持当前视角不变，可点「撤销排版」还原）');
     }
@@ -5894,13 +6147,15 @@
     // 计算围绕基准坐标 (targetX, baseY) 上下对称紧凑扇出的首个无碰撞空位（防止卡片一路往下掉到画布底端）
     function findNearestFreeCanvasSlot(targetX, baseY, categoryId, ignoreTaskId = null) {
       const STEP_Y = NODE_H + 14; // 106px
-      const visiblePool = appState.selectedCategoryId === 'all'
-        ? appState.data.tasks
-        : appState.data.tasks.filter(t => t.categoryId === categoryId);
-      const isOccupied = (cx, cy) => visiblePool.some(t =>
+      const activePool = getActiveTasks();
+      const activeHubs = getActiveCategories();
+      const isOccupied = (cx, cy) => activePool.some(t =>
         t.id !== ignoreTaskId &&
         Math.abs(t.x - cx) < (NODE_W - 14) &&
         Math.abs(t.y - cy) < (NODE_H - 8)
+      ) || activeHubs.some(c =>
+        cx < c.hubX + HUB_W + 8 && cx + NODE_W > c.hubX - 8 &&
+        cy < c.hubY + HUB_H + 8 && cy + NODE_H > c.hubY - 8
       );
       if (!isOccupied(targetX, baseY)) return { x: Math.round(targetX), y: Math.round(baseY) };
       for (let k = 1; k <= 60; k++) {
@@ -5943,11 +6198,14 @@
         if (appState.pendingNewTaskFromWire) renderEdgesOnly();
       };
 
+      const chosenCatObj = getCategoryById(chosenCatId);
       document.getElementById('modalTitleText').textContent = parentTask
         ? (fromWireDrop
             ? `✨ 在箭头落点新建下一步（接在「${parentTask.title.slice(0, 12)}」之后）`
             : `衍生下一步工作（接在「${parentTask.title.slice(0, 12)}...」之后）`)
-        : '新增科研工作 / 脉络节点';
+        : (fromWireDrop && chosenCatObj
+            ? `✨ 在箭头落点新建「${chosenCatObj.name.slice(0, 12)}」首层卡片`
+            : '新增科研工作 / 脉络节点');
 
       document.getElementById('inputTaskTitle').value = '';
       document.getElementById('inputTaskStage').value = '';
@@ -6044,10 +6302,20 @@
 
       appState.data.tasks.push(newTask);
       appState.selectedTaskId = newTask.id;
+      let autoExpandedDepth = false;
+      if (isOverviewDepthTrimmed()) {
+        const dMap = computeSameCatDepthMap(categoryId);
+        const newDepth = dMap.get(newTask.id) || 1;
+        if (newDepth > Number(appState.overviewDepth)) {
+          appState.overviewDepth = 'all';
+          try { localStorage.setItem('lly_overview_depth_v1', 'all'); } catch (e) {}
+          autoExpandedDepth = true;
+        }
+      }
       saveState();
       closeNewTaskModal();
       renderAll();
-      showToast('已添加新科研工作并连入导图');
+      showToast(autoExpandedDepth ? '已添加新卡片，并自动展开「全部」层级以便查看' : '已添加新科研工作并连入导图');
     }
 
     // Category Modal + Standard Research Template Generator
@@ -6148,6 +6416,26 @@
       e.preventDefault();
       e.stopPropagation();
       beginInteractiveWireSession(fromTaskId, e.clientX, e.clientY, false);
+    }
+
+    function startPortWireTouch(e, fromTaskId) {
+      if (!e.touches || e.touches.length !== 1) return;
+      e.preventDefault();
+      e.stopPropagation();
+      beginInteractiveWireSession(fromTaskId, e.touches[0].clientX, e.touches[0].clientY, false);
+    }
+
+    function startHubPortWireDrag(e, fromCatId) {
+      e.preventDefault();
+      e.stopPropagation();
+      beginHubWireSession(fromCatId, e.clientX, e.clientY);
+    }
+
+    function startHubPortWireTouch(e, fromCatId) {
+      if (!e.touches || e.touches.length !== 1) return;
+      e.preventDefault();
+      e.stopPropagation();
+      beginHubWireSession(fromCatId, e.touches[0].clientX, e.touches[0].clientY);
     }
 
     // ===== 数据文件夹：实时落盘 + 打开自动读回 + 每日备份 =====
