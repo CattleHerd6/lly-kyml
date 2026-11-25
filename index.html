@@ -243,39 +243,52 @@
 
 
     /* 卡片严格统一 92px 等高，左右端口锚在卡片垂直正中心 (PORT_OFFSET_Y = 46px) */
-    .port-out-dot {
+    /* 四向悬停连接点：平时隐身不扰视线，鼠标移到卡片/选中/拖线时淡入 */
+    .port-dot {
       position: absolute;
-      right: -7px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       border-radius: 9999px;
       background: #6366f1;
       border: 2px solid #ffffff;
-      box-shadow: 0 0 0 1.5px #6366f1;
+      box-shadow: 0 0 0 1.5px rgba(99, 102, 241, 0.85);
       cursor: crosshair;
-      z-index: 30;
-      transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
-    }
-    .port-out-dot:hover {
-      background: #4f46e5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35);
-      transform: translateY(-50%) scale(1.32);
-    }
-    .port-in-dot {
-      position: absolute;
-      left: -6px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 11px;
-      height: 11px;
-      border-radius: 9999px;
-      background: #ffffff;
-      border: 2px solid #94a3b8;
-      z-index: 25;
+      z-index: 32;
+      opacity: 0;
       pointer-events: none;
-      transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+      transition: opacity 0.14s ease, transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .node-card:hover .port-dot,
+    .node-card.node-selected .port-dot,
+    body.is-wiring .port-dot {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .port-dot-top { left: 50%; top: -7px; transform: translateX(-50%); }
+    .port-dot-bottom { left: 50%; bottom: -7px; transform: translateX(-50%); }
+    .port-dot-left { left: -7px; top: 50%; transform: translateY(-50%); }
+    .port-dot-right { right: -7px; top: 50%; transform: translateY(-50%); }
+    .port-dot-top:hover { transform: translateX(-50%) scale(1.32); background: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.32); }
+    .port-dot-bottom:hover { transform: translateX(-50%) scale(1.32); background: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.32); }
+    .port-dot-left:hover { transform: translateY(-50%) scale(1.32); background: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.32); }
+    .port-dot-right:hover { transform: translateY(-50%) scale(1.32); background: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.32); }
+    .node-multi-selected {
+      box-shadow: 0 0 0 2.5px #4f46e5, 0 8px 20px -6px rgba(79, 70, 229, 0.32) !important;
+      border-color: #4f46e5 !important;
+    }
+    .zone-drag-handle {
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+    }
+    .zone-drag-handle:active { cursor: grabbing; }
+    #marqueeSelectBox {
+      position: absolute;
+      border: 1.5px solid #4f46e5;
+      background: rgba(99, 102, 241, 0.12);
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 45;
     }
     .node-snap-target {
       border-color: #10b981 !important;
@@ -676,7 +689,7 @@
       .mobile-only { display: flex !important; }
       #leftSidebar { display: none !important; }
       #graphSection { display: none !important; }
-      #recentSection:not(.hidden), #pomodoroSection:not(.hidden), #countdownSection:not(.hidden) {
+      #recentSection:not(.hidden), #pomodoroSection:not(.hidden), #countdownSection:not(.hidden), #memoSection:not(.hidden) {
         display: flex !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -734,6 +747,10 @@
       <button id="viewBtnCountdown" onclick="setAppView('countdown')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white">
         📅 倒计日
       </button>
+      <button id="viewBtnMemo" onclick="setAppView('memo')" class="px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white flex items-center gap-1">
+        <span>📝 便签</span>
+        <span id="navMemoBadge" class="hidden px-1.5 py-0 rounded-full text-[11px] font-bold bg-amber-400/90 text-slate-900 leading-4">0</span>
+      </button>
     </div>
 
     <!-- Right Actions -->
@@ -759,6 +776,7 @@
     <button id="mViewBtnRecent" onclick="setAppView('recent')" class="flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition">📋 看板</button>
     <button id="mViewBtnPomodoro" onclick="setAppView('pomodoro')" class="flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition">🍅 番茄钟</button>
     <button id="mViewBtnCountdown" onclick="setAppView('countdown')" class="flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition">📅 倒计日</button>
+    <button id="mViewBtnMemo" onclick="setAppView('memo')" class="flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition">📝 便签</button>
   </div>
 
   <!-- Main Workspace Area -->
@@ -828,8 +846,8 @@
               <input id="searchNodeInput" oninput="handleSearchInput(this.value)" type="text" placeholder="🔍 搜索节点或备注..." class="text-[13px] bg-slate-100/90 border border-slate-200/90 rounded-xl pl-3 pr-6 py-1.5 w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
               <button id="clearSearchBtn" type="button" onclick="clearSearchInput()" title="清空搜索" class="hidden absolute right-2 text-[12px] text-slate-400 hover:text-slate-700 font-bold leading-none">✕</button>
             </div>
-            <button onclick="autoLayoutNodes(true)" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="按脉络层级一键重排卡片坐标（保持当前缩放视角不变）">
-              自动整理脉络
+            <button onclick="autoLayoutNodes(true)" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="就近对齐同行同列卡片并轻解重叠，保留你的四向自由摆位（可撤销）">
+              就近对齐整理
             </button>
             <button id="undoLayoutBtn" type="button" onclick="undoAutoLayout()" class="hidden btn-soft px-2.5 py-1.5 rounded-xl text-amber-700 text-[12.5px] font-semibold" title="撤回刚刚的自动排版，恢复手动摆放坐标">
               ↩ 撤销排版
@@ -867,6 +885,13 @@
             <svg id="edgesSvg" style="overflow: visible; z-index: 5;" class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg"></svg>
             <div id="nodesContainer" class="absolute inset-0" style="z-index: 10;"></div>
           </div>
+          <div id="marqueeSelectBox" class="hidden"></div>
+          <div id="multiSelectBanner" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 rounded-full bg-slate-900/90 text-white text-[12px] font-medium shadow-lg flex items-center gap-2.5">
+            <span id="multiSelectCountText">已选中 0 张卡片</span>
+            <span class="text-slate-400">·</span>
+            <span class="text-slate-300">拖动任意一张即可批量平移</span>
+            <button type="button" onclick="clearMultiSelection()" class="ml-1 px-2 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-[11px] font-semibold">取消</button>
+          </div>
         </div>
       </section>
 
@@ -901,10 +926,10 @@
 
         <div class="px-3 pt-2.5 pb-1 bg-white/70 border-b border-slate-200/60">
           <div class="flex items-center gap-1.5">
-            <input id="quickMemoInput" type="text" autocomplete="off" placeholder="⚡ 快速记一条实验进展 / 待办，回车即存..."
+            <input id="quickMemoInput" type="text" autocomplete="off" placeholder="📝 随手记一条临时便签（暖黄置顶，不混入待办），回车即存..."
               onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitQuickMemo();}"
-              class="flex-1 text-[12.5px] bg-slate-100/90 focus:bg-white border border-slate-200/90 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
-            <button type="button" onclick="submitQuickMemo()" class="btn-soft px-2.5 py-1.5 rounded-xl text-[12px] font-semibold text-indigo-700 shrink-0">记一笔</button>
+              class="flex-1 text-[12.5px] bg-amber-50/80 focus:bg-white border border-amber-200/90 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400 transition" />
+            <button type="button" onclick="submitQuickMemo()" class="px-2.5 py-1.5 rounded-xl text-[12px] font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300/80 shrink-0 transition">记一笔</button>
           </div>
         </div>
         <div id="recentTasksList" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
@@ -984,6 +1009,39 @@
             </button>
           </div>
           <div id="countdownListContainer" class="grid grid-cols-1 md:grid-cols-3 gap-3.5"></div>
+        </div>
+      </section>
+
+      <!-- Standalone Pure Sticky-Notes / Memos Page -->
+      <section id="memoSection" class="hidden flex-1 bg-amber-50/35 flex-col h-full overflow-y-auto">
+        <div class="max-w-5xl w-full mx-auto px-4 py-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-[20px] font-bold text-slate-800 tracking-tight">📝 科研纯便签墙</h2>
+              <p class="text-[13px] text-slate-500 mt-0.5">存放临时灵感、组会随记、实验碎念——完全独立于待办进度统计，支持一键转为正式导图卡片，自动同步本地与 GitHub</p>
+            </div>
+            <div class="flex items-center gap-1.5 text-[12px] text-slate-500">
+              <span class="px-2.5 py-1 rounded-lg bg-amber-100/80 text-amber-900 font-semibold border border-amber-200" id="memoTotalCountBadge">0 条便签</span>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-amber-200/90 shadow-sm p-3.5 space-y-2.5">
+            <textarea id="memoPageInput" rows="2" placeholder="写下一段临时想法、试剂提醒或组会记录…（Ctrl + Enter 快速保存）"
+              onkeydown="if((event.ctrlKey || event.metaKey) && event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitMemoFromPage();}"
+              class="w-full text-[13.5px] bg-amber-50/40 focus:bg-white border border-amber-200/80 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none transition"></textarea>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 text-[12px] text-slate-500">
+                <span>便签颜色：</span>
+                <button type="button" onclick="setNewMemoColor('amber')" id="memoColorBtn_amber" class="w-5 h-5 rounded-full bg-amber-200 border-2 border-amber-500 ring-2 ring-amber-300 transition" title="暖黄（默认）"></button>
+                <button type="button" onclick="setNewMemoColor('emerald')" id="memoColorBtn_emerald" class="w-5 h-5 rounded-full bg-emerald-200 border-2 border-emerald-400 transition" title="薄荷绿"></button>
+                <button type="button" onclick="setNewMemoColor('violet')" id="memoColorBtn_violet" class="w-5 h-5 rounded-full bg-violet-200 border-2 border-violet-400 transition" title="淡紫"></button>
+                <button type="button" onclick="setNewMemoColor('rose')" id="memoColorBtn_rose" class="w-5 h-5 rounded-full bg-rose-200 border-2 border-rose-400 transition" title="樱粉"></button>
+              </div>
+              <button type="button" onclick="submitMemoFromPage()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-semibold shadow-sm transition">+ 新增便签</button>
+            </div>
+          </div>
+
+          <div id="memoWallGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </div>
       </section>
 
@@ -1318,6 +1376,35 @@
   </div>
 
   <!-- ===== 📖 使用指南弹窗 ===== -->
+  <!-- Edge Label Modal -->
+  <div id="edgeLabelModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[70] hidden items-center justify-center p-4" onclick="if(event.target===this) closeEdgeLabelModal()">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-[15px] text-slate-800">✎ 连线文字标注</h3>
+        <button type="button" onclick="closeEdgeLabelModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <p id="edgeLabelRelationText" class="text-[12.5px] text-slate-500 truncate"></p>
+        <input id="edgeLabelInput" type="text" maxlength="40" placeholder="例如：失败转方案 / 1:1替换 / 支撑机理（留空则清除）"
+          onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); saveEdgeLabelModal();}"
+          class="w-full text-[13.5px] bg-slate-50 focus:bg-white border border-slate-200 rounded-xl px-3.5 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          <button type="button" onclick="document.getElementById('edgeLabelInput').value='失败转方案'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11.5px]">失败转方案</button>
+          <button type="button" onclick="document.getElementById('edgeLabelInput').value='优化条件'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11.5px]">优化条件</button>
+          <button type="button" onclick="document.getElementById('edgeLabelInput').value='补充表征'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11.5px]">补充表征</button>
+          <button type="button" onclick="document.getElementById('edgeLabelInput').value='支撑机理'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11.5px]">支撑机理</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button type="button" onclick="clearEdgeLabelModal()" class="text-[12.5px] text-rose-600 hover:text-rose-700 font-medium">清除标注</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeEdgeLabelModal()" class="btn-soft px-3.5 py-1.5 rounded-xl text-[13px] text-slate-600">取消</button>
+          <button type="button" onclick="saveEdgeLabelModal()" class="btn-primary px-4 py-1.5 rounded-xl text-[13px] text-white font-semibold">保存标注</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="helpGuideModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[84vh] overflow-hidden flex flex-col">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
@@ -1334,7 +1421,7 @@
             <li><strong>新建与细分</strong>：双击画布空白处新建卡片；按住卡片右侧的<strong>靛蓝圆点</strong>拖向另一张卡片建立连线，或拖到空白处松手直接新建下游细分卡片。</li>
             <li><strong>快捷编辑</strong>：双击卡片标题原地改名；点击卡片里的「待办 / 进行 / 完成」或「+ 标签」一键切换；点右上角 ✎ 展开侧栏写备注和子步骤；右键任意卡片、连线或课题有快捷菜单。</li>
             <li><strong>总览层级</strong>：在「全部主题」下可通过工具栏 <strong>总览：2级 | 3级 | 全部</strong> 折叠过深的细枝，点击卡片右侧的 <strong>+N</strong> 徽章可直接进入该课题查看全貌。</li>
-            <li><strong>视野控制</strong>：鼠标滚轮上下平移画布，<strong>Ctrl + 滚轮</strong>缩放，点「自动整理脉络」原地整理卡片（不跳视野，可点「撤销排版」一键还原），点「⌖ 回到起点」快速回到画布起点；深色主题卡片与任务卡片右侧蓝点均可拖出连线或拖到空白处新建卡片。</li>
+            <li><strong>四向白板与整理</strong>：鼠标悬停卡片时四周浮现连接圆点，上下左右皆可拉线或拖到空白处新建卡片，连线自动走就近边；按住 <strong>Shift + 拖框</strong> 可多选批量移动，总览下拖课题虚线框标题可整组平移；点「就近对齐整理」只原地对齐同行同列并解重叠，不打乱自由布局（可撤销）。</li><li><strong>连线标注与纯便签</strong>：点击/右键连线可加简短文字说明；右侧「记一笔」默认存为暖黄色纯便签（置顶显示且汇总在顶部「📝 便签」墙），不混入待办统计，随时可一键转为正式卡片。</li>
           </ul>
         </div>
 
@@ -1635,7 +1722,9 @@
         ],
         tasks: [],
         trash: [],
-        countdowns: []
+        countdowns: [],
+        memos: [],
+        edgeLabels: {}
       };
     }
 
@@ -1767,7 +1856,28 @@
         categories,
         tasks,
         trash,
-        countdowns
+        countdowns,
+        memos: (Array.isArray(rawParsed.memos) ? rawParsed.memos : []).map((m, idx) => {
+          if (!m || typeof m !== 'object') m = {};
+          const allowedColors = new Set(['amber', 'emerald', 'violet', 'rose']);
+          return {
+            id: sanitizeId(m.id, 'memo-' + idx, new Set()),
+            text: String(m.text || '').trim(),
+            color: allowedColors.has(m.color) ? m.color : 'amber',
+            pinned: Boolean(m.pinned),
+            createdAt: typeof m.createdAt === 'string' && m.createdAt ? m.createdAt : new Date().toISOString(),
+            updatedAt: typeof m.updatedAt === 'string' && m.updatedAt ? m.updatedAt : new Date().toISOString()
+          };
+        }).filter(m => m.text),
+        edgeLabels: (() => {
+          const out = {};
+          const rawMap = (rawParsed.edgeLabels && typeof rawParsed.edgeLabels === 'object' && !Array.isArray(rawParsed.edgeLabels)) ? rawParsed.edgeLabels : {};
+          Object.keys(rawMap).forEach(k => {
+            const val = String(rawMap[k] || '').trim();
+            if (val && k.includes('->')) out[k] = val.slice(0, 60);
+          });
+          return out;
+        })()
       };
     }
 
@@ -1817,6 +1927,18 @@
       listTab: 'soon',
       wiringFromTaskId: null,
       wiringFromHubCatId: null,
+      wiringFromSide: 'right',
+      selectedTaskIds: new Set(),
+      draggingMultiStarts: null,
+      draggingZoneCatId: null,
+      draggingZoneStarts: null,
+      isMarqueeSelecting: false,
+      marqueeStartX: 0,
+      marqueeStartY: 0,
+      alignGuides: [],
+      newMemoColor: 'amber',
+      convertingMemoId: null,
+      editingEdgeKey: null,
       wiringTempPathD: '',
       wiringSnapTaskId: null,
       wiringGhostPoint: null,
@@ -2191,9 +2313,61 @@
         { label: null, header: '连线关系' },
         { icon: '↖', label: `定位上游：${fromTask.title.slice(0, 14)}`, action: () => selectTaskAndFocusCanvas(fromId) },
         { icon: '↘', label: `定位下游：${toTask.title.slice(0, 14)}`, action: () => selectTaskAndFocusCanvas(toId) },
+        { icon: '✎', label: getEdgeLabel(fromId, toId) ? '编辑连线标注' : '添加连线文字标注', action: () => openEdgeLabelModal(fromId, toId) },
         { sep: true },
         { icon: '✂️', label: '断开这条连线', danger: true, action: () => toggleTaskDep(toId, fromId) }
       ]);
+    }
+
+    function getEdgeLabelKey(fromId, toId) {
+      return `${fromId}->${toId}`;
+    }
+
+    function getEdgeLabel(fromId, toId) {
+      const map = (appState.data && appState.data.edgeLabels) || {};
+      return map[getEdgeLabelKey(fromId, toId)] || '';
+    }
+
+    function openEdgeLabelModal(fromId, toId) {
+      const f = getTaskById(fromId);
+      const t = getTaskById(toId);
+      appState.editingEdgeKey = getEdgeLabelKey(fromId, toId);
+      const relEl = document.getElementById('edgeLabelRelationText');
+      if (relEl) relEl.textContent = `${f ? f.title.slice(0, 18) : ''}  →  ${t ? t.title.slice(0, 18) : ''}`;
+      const inp = document.getElementById('edgeLabelInput');
+      if (inp) inp.value = getEdgeLabel(fromId, toId);
+      const modal = document.getElementById('edgeLabelModal');
+      if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+      setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 20);
+    }
+
+    function closeEdgeLabelModal() {
+      appState.editingEdgeKey = null;
+      const modal = document.getElementById('edgeLabelModal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    }
+
+    function saveEdgeLabelModal() {
+      if (!appState.editingEdgeKey) return;
+      const inp = document.getElementById('edgeLabelInput');
+      const val = inp ? inp.value.trim().slice(0, 60) : '';
+      if (!appState.data.edgeLabels || typeof appState.data.edgeLabels !== 'object') appState.data.edgeLabels = {};
+      if (val) {
+        appState.data.edgeLabels[appState.editingEdgeKey] = val;
+        showToast('✓ 已保存连线标注');
+      } else {
+        delete appState.data.edgeLabels[appState.editingEdgeKey];
+        showToast('已清除连线标注');
+      }
+      closeEdgeLabelModal();
+      saveState();
+      renderEdgesOnly();
+    }
+
+    function clearEdgeLabelModal() {
+      const inp = document.getElementById('edgeLabelInput');
+      if (inp) inp.value = '';
+      saveEdgeLabelModal();
     }
 
     function hubContextMenu(catId) {
@@ -2297,16 +2471,96 @@
       });
     }
 
-    // 统一连线与「拖出箭头松手新建卡片」引擎
-    function beginInteractiveWireSession(fromTaskId, startClientX = null, startClientY = null, announce = false) {
+    function getBoxSidePort(x, y, w, h, side) {
+      if (side === 'top') return { x: x + w / 2, y: y, nx: 0, ny: -1 };
+      if (side === 'bottom') return { x: x + w / 2, y: y + h, nx: 0, ny: 1 };
+      if (side === 'left') return { x: x, y: y + h / 2, nx: -1, ny: 0 };
+      return { x: x + w, y: y + h / 2, nx: 1, ny: 0 };
+    }
+
+    function computeSmartEdgePath(x1, y1, w1, h1, x2, y2, w2, h2) {
+      const cx1 = x1 + w1 / 2;
+      const cy1 = y1 + h1 / 2;
+      const cx2 = x2 + w2 / 2;
+      const cy2 = y2 + h2 / 2;
+      const dx = cx2 - cx1;
+      const dy = cy2 - cy1;
+
+      let fromSide = 'right';
+      let toSide = 'left';
+      if (Math.abs(dx) * 0.72 >= Math.abs(dy)) {
+        if (dx >= 0) { fromSide = 'right'; toSide = 'left'; }
+        else { fromSide = 'left'; toSide = 'right'; }
+      } else {
+        if (dy >= 0) { fromSide = 'bottom'; toSide = 'top'; }
+        else { fromSide = 'top'; toSide = 'bottom'; }
+      }
+
+      const p1 = getBoxSidePort(x1, y1, w1, h1, fromSide);
+      const p2 = getBoxSidePort(x2, y2, w2, h2, toSide);
+      const isHoriz = (fromSide === 'left' || fromSide === 'right');
+
+      let d = '';
+      let mx = (p1.x + p2.x) / 2;
+      let my = (p1.y + p2.y) / 2;
+
+      if (isHoriz) {
+        const span = Math.max(36, Math.abs(p2.x - p1.x) * 0.48);
+        const c1x = Math.round(p1.x + p1.nx * span);
+        const c1y = p1.y;
+        const c2x = Math.round(p2.x + p2.nx * span);
+        const c2y = p2.y;
+        d = Math.abs(p2.y - p1.y) <= 1.5
+          ? `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
+          : `M ${p1.x} ${p1.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+        mx = 0.125 * p1.x + 0.375 * c1x + 0.375 * c2x + 0.125 * p2.x;
+        my = 0.125 * p1.y + 0.375 * c1y + 0.375 * c2y + 0.125 * p2.y;
+      } else {
+        const span = Math.max(36, Math.abs(p2.y - p1.y) * 0.48);
+        const c1x = p1.x;
+        const c1y = Math.round(p1.y + p1.ny * span);
+        const c2x = p2.x;
+        const c2y = Math.round(p2.y + p2.ny * span);
+        d = Math.abs(p2.x - p1.x) <= 1.5
+          ? `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
+          : `M ${p1.x} ${p1.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+        mx = 0.125 * p1.x + 0.375 * c1x + 0.375 * c2x + 0.125 * p2.x;
+        my = 0.125 * p1.y + 0.375 * c1y + 0.375 * c2y + 0.125 * p2.y;
+      }
+      return { d, mx: Math.round(mx), my: Math.round(my), fromSide, toSide };
+    }
+
+    function buildLiveWirePath(p1, x2, y2, side) {
+      const isHoriz = (side === 'left' || side === 'right');
+      if (isHoriz) {
+        const bend = Math.max(44, Math.abs(x2 - p1.x) * 0.45);
+        return `M ${p1.x} ${p1.y} C ${p1.x + p1.nx * bend} ${p1.y}, ${x2 - p1.nx * bend} ${y2}, ${x2} ${y2}`;
+      }
+      const bend = Math.max(44, Math.abs(y2 - p1.y) * 0.45);
+      return `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y + p1.ny * bend}, ${x2} ${y2 - p1.ny * bend}, ${x2} ${y2}`;
+    }
+
+    function computeGhostDropPoint(rawX, rawY, side) {
+      if (side === 'left') return { x: Math.round(rawX - NODE_W), y: Math.round(rawY - PORT_OFFSET_Y) };
+      if (side === 'top') return { x: Math.round(rawX - NODE_W / 2), y: Math.round(rawY - NODE_H) };
+      if (side === 'bottom') return { x: Math.round(rawX - NODE_W / 2), y: Math.round(rawY) };
+      return { x: Math.round(rawX), y: Math.round(rawY - PORT_OFFSET_Y) };
+    }
+
+    // 统一连线与「四向拖出箭头松手新建卡片」引擎
+    function beginInteractiveWireSession(fromTaskId, startClientX = null, startClientY = null, announce = false, fromSide = 'right') {
       const fromTask = getTaskById(fromTaskId);
       if (!fromTask) return;
       if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
       appState.wiringFromTaskId = fromTaskId;
+      appState.wiringFromHubCatId = null;
+      appState.wiringFromSide = fromSide || 'right';
       appState.wiringSnapTaskId = null;
       appState.wiringGhostPoint = null;
-      const x1 = fromTask.x + NODE_W;
-      const y1 = fromTask.y + PORT_OFFSET_Y;
+      if (document.body && document.body.classList) document.body.classList.add('is-wiring');
+      const p1 = getBoxSidePort(fromTask.x, fromTask.y, NODE_W, getNodeHeight(fromTask), appState.wiringFromSide);
+      const x1 = p1.x;
+      const y1 = p1.y;
 
       const onMove = (ev) => {
         const stage = document.getElementById('canvasStage');
@@ -2321,23 +2575,19 @@
         if (snapTarget) {
           appState.wiringSnapTaskId = snapTarget.id;
           appState.wiringGhostPoint = null;
-          x2 = snapTarget.x;
-          y2 = snapTarget.y + PORT_OFFSET_Y;
+          const smart = computeSmartEdgePath(fromTask.x, fromTask.y, NODE_W, getNodeHeight(fromTask), snapTarget.x, snapTarget.y, NODE_W, getNodeHeight(snapTarget));
+          appState.wiringTempPathD = smart.d;
         } else {
           appState.wiringSnapTaskId = null;
           const distFromPort = Math.hypot(rawX - x1, rawY - y1);
           if (distFromPort >= 28) {
-            appState.wiringGhostPoint = {
-              x: Math.round(rawX),
-              y: Math.round(rawY - PORT_OFFSET_Y)
-            };
+            appState.wiringGhostPoint = computeGhostDropPoint(rawX, rawY, appState.wiringFromSide);
           } else {
             appState.wiringGhostPoint = null;
           }
+          appState.wiringTempPathD = buildLiveWirePath(p1, x2, y2, appState.wiringFromSide);
         }
         updateSnapTargetDomHighlight(appState.wiringSnapTaskId);
-        const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
-        appState.wiringTempPathD = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
         scheduleEdgesRender();
       };
 
@@ -2367,6 +2617,7 @@
         window.removeEventListener('touchend', onTouchEnd);
         window.removeEventListener('touchcancel', onTouchCancel);
         window.removeEventListener('blur', cleanup);
+        if (document.body && document.body.classList) document.body.classList.remove('is-wiring');
         updateSnapTargetDomHighlight(null);
         if (appState.wiringCleanup === cleanup) appState.wiringCleanup = null;
       };
@@ -2425,17 +2676,20 @@
       }
     }
 
-    // 从深色课题枢纽卡片右侧蓝点拖出连线：拖到空白处松手新建首层卡片，拖到已有卡片设为本课题首层
-    function beginHubWireSession(fromCatId, startClientX = null, startClientY = null) {
+    // 从深色课题枢纽卡片任意方向圆点拖出连线：拖到空白处松手新建首层卡片，拖到已有卡片设为本课题首层
+    function beginHubWireSession(fromCatId, startClientX = null, startClientY = null, fromSide = 'right') {
       const cat = getCategoryById(fromCatId);
       if (!cat) return;
       if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
       appState.wiringFromTaskId = null;
       appState.wiringFromHubCatId = fromCatId;
+      appState.wiringFromSide = fromSide || 'right';
       appState.wiringSnapTaskId = null;
       appState.wiringGhostPoint = null;
-      const x1 = cat.hubX + HUB_W;
-      const y1 = cat.hubY + 38;
+      if (document.body && document.body.classList) document.body.classList.add('is-wiring');
+      const p1 = getBoxSidePort(cat.hubX, cat.hubY, HUB_W, HUB_H, appState.wiringFromSide);
+      const x1 = p1.x;
+      const y1 = p1.y;
 
       const onMove = (ev) => {
         const stage = document.getElementById('canvasStage');
@@ -2450,23 +2704,19 @@
         if (snapTarget) {
           appState.wiringSnapTaskId = snapTarget.id;
           appState.wiringGhostPoint = null;
-          x2 = snapTarget.x;
-          y2 = snapTarget.y + PORT_OFFSET_Y;
+          const smart = computeSmartEdgePath(cat.hubX, cat.hubY, HUB_W, HUB_H, snapTarget.x, snapTarget.y, NODE_W, getNodeHeight(snapTarget));
+          appState.wiringTempPathD = smart.d;
         } else {
           appState.wiringSnapTaskId = null;
           const distFromPort = Math.hypot(rawX - x1, rawY - y1);
           if (distFromPort >= 28) {
-            appState.wiringGhostPoint = {
-              x: Math.round(rawX),
-              y: Math.round(rawY - PORT_OFFSET_Y)
-            };
+            appState.wiringGhostPoint = computeGhostDropPoint(rawX, rawY, appState.wiringFromSide);
           } else {
             appState.wiringGhostPoint = null;
           }
+          appState.wiringTempPathD = buildLiveWirePath(p1, x2, y2, appState.wiringFromSide);
         }
         updateSnapTargetDomHighlight(appState.wiringSnapTaskId);
-        const dx = Math.max(48, Math.abs(x2 - x1) * 0.45);
-        appState.wiringTempPathD = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
         scheduleEdgesRender();
       };
 
@@ -2482,6 +2732,7 @@
         window.removeEventListener('touchend', onTouchEnd);
         window.removeEventListener('touchcancel', onTouchCancel);
         window.removeEventListener('blur', cleanup);
+        if (document.body && document.body.classList) document.body.classList.remove('is-wiring');
         updateSnapTargetDomHighlight(null);
         if (appState.wiringCleanup === cleanup) appState.wiringCleanup = null;
       };
@@ -3675,21 +3926,25 @@
       const recentSec = document.getElementById('recentSection');
       const pomoSec = document.getElementById('pomodoroSection');
       const cdSec = document.getElementById('countdownSection');
+      const memoSec = document.getElementById('memoSection');
       const btnSplit = document.getElementById('viewBtnSplit');
       const btnGraph = document.getElementById('viewBtnGraph');
       const btnRecent = document.getElementById('viewBtnRecent');
       const btnPomo = document.getElementById('viewBtnPomodoro');
       const btnCd = document.getElementById('viewBtnCountdown');
+      const btnMemo = document.getElementById('viewBtnMemo');
       const mRecent = document.getElementById('mViewBtnRecent');
       const mPomo = document.getElementById('mViewBtnPomodoro');
       const mCd = document.getElementById('mViewBtnCountdown');
+      const mMemo = document.getElementById('mViewBtnMemo');
 
       const idleCls = 'px-3 py-1 rounded-lg text-[13px] font-medium transition text-slate-300 hover:text-white';
       const activeCls = 'px-3 py-1 rounded-lg text-[13px] font-medium transition bg-indigo-600 text-white shadow-sm';
       [btnSplit, btnGraph, btnRecent, btnPomo, btnCd].forEach(b => { if (b) b.className = idleCls; });
-      [mRecent, mPomo, mCd].forEach(b => { if (b) b.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition'; });
+      if (btnMemo) btnMemo.className = idleCls + ' flex items-center gap-1';
+      [mRecent, mPomo, mCd, mMemo].forEach(b => { if (b) b.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-medium text-slate-300 hover:text-white transition'; });
 
-      [graphSec, recentSec, pomoSec, cdSec].forEach(sec => {
+      [graphSec, recentSec, pomoSec, cdSec, memoSec].forEach(sec => {
         if (sec) { sec.classList.add('hidden'); sec.classList.remove('flex'); }
       });
 
@@ -3723,6 +3978,11 @@
         if (mCd) mCd.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-indigo-600 text-white transition';
         if (cdSec) { cdSec.classList.remove('hidden'); cdSec.classList.add('flex'); }
         renderCountdownView();
+      } else if (view === 'memo') {
+        if (btnMemo) btnMemo.className = activeCls + ' flex items-center gap-1';
+        if (mMemo) mMemo.className = 'flex-1 py-1 rounded-lg text-[12.5px] font-semibold bg-amber-500 text-white transition';
+        if (memoSec) { memoSec.classList.remove('hidden'); memoSec.classList.add('flex'); }
+        renderMemoView();
       }
       renderAll();
     }
@@ -4101,37 +4361,21 @@
         if (visibleDeps.length === 0) {
           const cat = visibleCategories.find(c => c.id === task.categoryId);
           if (cat) {
-            const palette = COLOR_PALETTE[cat.color] || COLOR_PALETTE.indigo;
-            const x1 = cat.hubX + HUB_W;
-            const y1 = cat.hubY + 38; // exact midpoint of 76px HUB_H
-            const spanX = Math.max(24, x2 - x1);
-            const c1x = Math.round(x1 + spanX * 0.48);
-            const c2x = Math.round(x2 - spanX * 0.42);
-            const d = Math.abs(y2 - y1) <= 1
-              ? `M ${x1} ${y1} L ${x2} ${y2}`
-              : `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
+            const smart = computeSmartEdgePath(cat.hubX, cat.hubY, HUB_W, HUB_H, task.x, task.y, NODE_W, getNodeHeight(task));
             const isHubDoing = task.status === 'in_progress';
             const isHubDone = task.status === 'done';
             const strokeColor = isHubDone ? '#059669' : (isHubDoing ? '#4f46e5' : '#94a3b8');
             const strokeW = isHubDoing ? '2.4' : (isHubDone ? '2.2' : '1.8');
             const hubAnimClass = isHubDoing ? 'edge-animated' : '';
-            pathsHtml += `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linecap="round" stroke-opacity="0.9" class="${hubAnimClass}" />`;
+            pathsHtml += `<path d="${smart.d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linecap="round" stroke-opacity="0.9" class="${hubAnimClass}" />`;
           }
         } else {
           visibleDeps.forEach(depId => {
             const parent = getTaskById(depId);
             if (!parent) return;
 
-            const x1 = parent.x + NODE_W;
-            const y1 = parent.y + PORT_OFFSET_Y; // 标题行中线
-            const spanX = Math.max(32, Math.abs(x2 - x1));
-            const stem = x2 > x1 + 28 ? 10 : 0;
-            const sx = x1 + stem;
-            const c1x = Math.round(sx + (spanX - stem) * 0.5);
-            const c2x = Math.round(x2 - (spanX - stem) * 0.45);
-            const d = (Math.abs(y2 - y1) <= 1 && x2 > x1)
-              ? `M ${x1} ${y1} L ${x2} ${y2}`
-              : `M ${x1} ${y1} L ${sx} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
+            const smart = computeSmartEdgePath(parent.x, parent.y, NODE_W, getNodeHeight(parent), task.x, task.y, NODE_W, getNodeHeight(task));
+            const d = smart.d;
 
             // 细分脉络视觉规则：只看下游节点当前状态，不要求上游先完成
             // 进行中 -> 靛蓝流动线；已完成 -> 绿色实线；待办 -> 干净的灰蓝实线
@@ -4151,7 +4395,14 @@
               extraClass = 'edge-animated';
             }
 
-            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeW}" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" /></g>`;
+            const labelText = getEdgeLabel(depId, task.id);
+            let labelHtml = '';
+            if (labelText) {
+              const approxW = Math.max(44, Math.min(180, labelText.length * 11.5 + 16));
+              labelHtml = `<g style="pointer-events: auto; cursor: pointer;" onclick="event.stopPropagation(); openEdgeLabelModal('${depId}', '${task.id}')"><rect x="${smart.mx - approxW / 2}" y="${smart.my - 10}" width="${approxW}" height="20" rx="10" fill="#ffffff" stroke="${stroke}" stroke-width="1.2" /><text x="${smart.mx}" y="${smart.my + 3.5}" text-anchor="middle" fill="#334155" font-size="10.5" font-weight="600">${escapeHtml(labelText)}</text></g>`;
+            }
+
+            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线/加标注（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeW}" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" />${labelHtml}</g>`;
           });
         }
       });
@@ -4226,7 +4477,17 @@
           </g>
         `;
       }
-      edgesSvg.innerHTML = defsHtml + pathsHtml + wireHtml;
+      let guidesHtml = '';
+      if (Array.isArray(appState.alignGuides) && appState.alignGuides.length > 0) {
+        appState.alignGuides.forEach(g => {
+          if (g.type === 'v') {
+            guidesHtml += `<line x1="${g.pos}" y1="${g.start}" x2="${g.pos}" y2="${g.end}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
+          } else if (g.type === 'h') {
+            guidesHtml += `<line x1="${g.start}" y1="${g.pos}" x2="${g.end}" y2="${g.pos}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
+          }
+        });
+      }
+      edgesSvg.innerHTML = defsHtml + pathsHtml + guidesHtml + wireHtml;
     }
 
     function renderGraphCanvas() {
@@ -4266,8 +4527,8 @@
           zonesHtml += `
             <div class="absolute rounded-2xl pointer-events-none select-none"
                  style="left: ${zx}px; top: ${zy}px; width: ${zw}px; height: ${zh}px; background: ${palette.zoneBg}; border: 1.5px dashed ${palette.zoneBorder};">
-              <span class="inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-tl-2xl rounded-br-xl ${palette.lightBadge}">
-                ${escapeHtml(cat.name)}
+              <span onmousedown="startDragZoneGroup(event, '${cat.id}')" title="按住拖动即可平移整个「${escapeAttr(cat.name)}」课题块" class="zone-drag-handle inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold rounded-tl-2xl rounded-br-xl ${palette.lightBadge} hover:brightness-95 transition">
+                <span class="opacity-60">⠿</span>${escapeHtml(cat.name)}
               </span>
             </div>
           `;
@@ -4293,7 +4554,10 @@
               <span class="truncate max-w-[105px]">${escapeHtml(cat.target || '课题脉络')}</span>
               <span class="shrink-0">${doneCount}/${catTasks.length}</span>
             </div>
-            <div class="port-out-dot" onmousedown="startHubPortWireDrag(event, '${cat.id}')" ontouchstart="startHubPortWireTouch(event, '${cat.id}')" title="按住蓝点拖到空白处松手新建首层卡片，或拖到已有卡片设为本课题首层"></div>
+            <div class="port-dot port-dot-top" onmousedown="startHubPortWireDrag(event, '${cat.id}', 'top')" ontouchstart="startHubPortWireTouch(event, '${cat.id}', 'top')" title="向上拖出连线或松手新建首层卡片"></div>
+            <div class="port-dot port-dot-right" onmousedown="startHubPortWireDrag(event, '${cat.id}', 'right')" ontouchstart="startHubPortWireTouch(event, '${cat.id}', 'right')" title="向右拖出连线或松手新建首层卡片"></div>
+            <div class="port-dot port-dot-bottom" onmousedown="startHubPortWireDrag(event, '${cat.id}', 'bottom')" ontouchstart="startHubPortWireTouch(event, '${cat.id}', 'bottom')" title="向下拖出连线或松手新建首层卡片"></div>
+            <div class="port-dot port-dot-left" onmousedown="startHubPortWireDrag(event, '${cat.id}', 'left')" ontouchstart="startHubPortWireTouch(event, '${cat.id}', 'left')" title="向左拖出连线或松手新建首层卡片"></div>
           </div>
         `;
       });
@@ -4305,6 +4569,7 @@
         const slots = getNodeSlots(task);
         const prog = slots.prog;
         const isSelected = appState.selectedTaskId === task.id;
+        const isMultiSelected = appState.selectedTaskIds && appState.selectedTaskIds.has(task.id);
         const isSnapTarget = appState.wiringSnapTaskId === task.id;
         const nextChildren = getDownstreamTasks(task.id);
         const dateBadge = getCardDateBadge(task);
@@ -4363,7 +4628,7 @@
                ontouchstart="startTouchDragNode(event, '${task.id}')"
                onclick="handleNodeClick(event, '${task.id}')"
                style="left: ${task.x}px; top: ${task.y}px; width: ${NODE_W}px; height: ${NODE_H}px;"
-               class="node-card node-fixed-card absolute rounded-xl bg-white border-2 ${cardBorderCls} shadow-sm cursor-grab">
+               class="node-card node-fixed-card absolute rounded-xl bg-white border-2 ${cardBorderCls} ${isMultiSelected ? 'node-multi-selected z-20' : ''} shadow-sm cursor-grab">
             <!-- Row 1: Checkbox + 1-line Title + Detail & Quick Star (固定 20px) -->
             <div class="flex items-center justify-between gap-1 h-5 leading-5 shrink-0">
               <div class="flex items-center gap-1.5 min-w-0 flex-1">
@@ -4412,9 +4677,11 @@
                 + 下一步${nextChildren.length ? ` (${nextChildren.length})` : ''}
               </button>
             </div>
-            <div class="port-in-dot" title="前置接入点"></div>
             ${hiddenDescCount > 0 ? `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); selectCategory('${task.categoryId}')" title="总览中已折叠后续 ${hiddenDescCount} 个细分节点，点击进入该课题展开全部" class="absolute -right-2 top-1.5 z-30 px-1.5 py-0.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold shadow-md leading-none">+${hiddenDescCount}</button>` : ''}
-            <div class="port-out-dot" onmousedown="startPortWireDrag(event, '${task.id}')" ontouchstart="startPortWireTouch(event, '${task.id}')" title="按住蓝点拖向另一节点连线，或拖到空白处松手直接新建下一步"></div>
+            <div class="port-dot port-dot-top" onmousedown="startPortWireDrag(event, '${task.id}', 'top')" ontouchstart="startPortWireTouch(event, '${task.id}', 'top')" title="向上拖出连线或松手新建下一步"></div>
+            <div class="port-dot port-dot-right" onmousedown="startPortWireDrag(event, '${task.id}', 'right')" ontouchstart="startPortWireTouch(event, '${task.id}', 'right')" title="向右拖出连线或松手新建下一步"></div>
+            <div class="port-dot port-dot-bottom" onmousedown="startPortWireDrag(event, '${task.id}', 'bottom')" ontouchstart="startPortWireTouch(event, '${task.id}', 'bottom')" title="向下拖出连线或松手新建下一步"></div>
+            <div class="port-dot port-dot-left" onmousedown="startPortWireDrag(event, '${task.id}', 'left')" ontouchstart="startPortWireTouch(event, '${task.id}', 'left')" title="向左拖出连线或松手新建下一步"></div>
           </div>
         `;
       });
@@ -4562,6 +4829,8 @@
         return true;
       };
 
+      const memoStripHtml = buildRecentMemoStripHtml();
+
       // 四象限矩阵模式（思路 B：导图不锁死，按星标/急件、进行中、常规待办、已完成分四象限）
       if (quadrantMode && appState.listTab !== 'week') {
         const isFullBoard = appState.currentView === 'recent';
@@ -4582,7 +4851,7 @@
             done: { title: '✅ 已完成', sub: '阶段成果记录', badge: 'bg-emerald-100 text-emerald-800', hdr: 'bg-emerald-50/50', items: q4, empty: '暂无已完成记录' }
           }[mode];
           if (singleSpec) {
-            container.innerHTML = `
+            container.innerHTML = memoStripHtml + `
               <div class="h-full flex flex-col gap-2">
                 <div class="flex items-center justify-between px-1">
                   <span class="text-[12px] text-slate-500 font-medium">当前筛选：${singleSpec.title}</span>
@@ -4598,7 +4867,7 @@
         }
 
         const matrixClass = isFullBoard ? 'quadrant-matrix-full' : 'quadrant-matrix';
-        container.innerHTML = `
+        container.innerHTML = memoStripHtml + `
           <div class="${matrixClass}">
             ${renderQuadrantBox('🔥 重点攻坚', '星标 / 今明急件', 'bg-amber-100 text-amber-800', 'bg-amber-50/50', q1, '暂无星标或今明急件')}
             ${renderQuadrantBox('▶ 正在推进', '已开工 · 持续推进', 'bg-indigo-100 text-indigo-800', 'bg-indigo-50/50', q2, '暂无进行中的任务')}
@@ -4631,7 +4900,7 @@
         if (!weekHtml) {
           weekHtml = '<div class="text-[13px] text-slate-400 bg-white rounded-xl p-4 border border-slate-200/70 text-center">未来 7 天暂无到期任务，可在右侧详情为任务设置截止日期。</div>';
         }
-        container.innerHTML = weekHtml;
+        container.innerHTML = memoStripHtml + weekHtml;
         return;
       }
 
@@ -4706,7 +4975,7 @@
         `;
       }
 
-      container.innerHTML = html;
+      container.innerHTML = memoStripHtml + html;
       if (prevScrollTop > 0) container.scrollTop = prevScrollTop;
     }
 
@@ -5001,8 +5270,10 @@
       renderInspector();
       syncBoardModeButtons();
       syncOverviewDepthUI();
+      updateMemoNavBadge();
       if (appState.currentView === 'countdown') renderCountdownView();
       if (appState.currentView === 'pomodoro') renderPomodoroView();
+      if (appState.currentView === 'memo') renderMemoView();
     }
 
     // 看板切换按钮的高亮状态
@@ -5035,10 +5306,39 @@
       openDeleteCatModal(catId);
     }
 
+    function updateMultiSelectUI() {
+      const n = appState.selectedTaskIds ? appState.selectedTaskIds.size : 0;
+      const banner = document.getElementById('multiSelectBanner');
+      const txt = document.getElementById('multiSelectCountText');
+      if (banner) banner.classList.toggle('hidden', n < 2);
+      if (txt) txt.textContent = `已选中 ${n} 张卡片`;
+      document.querySelectorAll('[data-node-id]').forEach(el => {
+        const id = el.getAttribute('data-node-id');
+        el.classList.toggle('node-multi-selected', Boolean(appState.selectedTaskIds && appState.selectedTaskIds.has(id)));
+      });
+    }
+
+    function clearMultiSelection() {
+      if (appState.selectedTaskIds) appState.selectedTaskIds.clear();
+      updateMultiSelectUI();
+    }
+
     function handleNodeClick(e, taskId) {
       if (appState.suppressNextClick) {
         appState.suppressNextClick = false;
         return;
+      }
+      if (e && e.shiftKey) {
+        if (!appState.selectedTaskIds) appState.selectedTaskIds = new Set();
+        if (appState.selectedTaskIds.has(taskId)) appState.selectedTaskIds.delete(taskId);
+        else appState.selectedTaskIds.add(taskId);
+        appState.selectedTaskId = taskId;
+        updateMultiSelectUI();
+        return;
+      }
+      if (appState.selectedTaskIds && appState.selectedTaskIds.size > 0) {
+        appState.selectedTaskIds.clear();
+        updateMultiSelectUI();
       }
       selectTask(taskId);
     }
@@ -5382,7 +5682,7 @@
     // =========================================================================
     function isInteractiveChildControl(target) {
       if (!target || !target.closest) return false;
-      return Boolean(target.closest('button, input, select, textarea, label, a, .port-out-dot'));
+      return Boolean(target.closest('button, input, select, textarea, label, a, .port-dot, .port-out-dot'));
     }
 
     function beginDragSession(clientX, clientY, el, taskId, hubId) {
@@ -5397,7 +5697,20 @@
         const task = getTaskById(taskId);
         appState.dragStartItemX = task ? task.x : 0;
         appState.dragStartItemY = task ? task.y : 0;
+        if (appState.selectedTaskIds && appState.selectedTaskIds.size > 1 && appState.selectedTaskIds.has(taskId)) {
+          appState.draggingMultiStarts = [];
+          appState.selectedTaskIds.forEach(id => {
+            const mt = getTaskById(id);
+            if (mt) {
+              const dom = document.querySelector(`[data-node-id="${id}"]`);
+              appState.draggingMultiStarts.push({ task: mt, x: mt.x, y: mt.y, el: dom });
+            }
+          });
+        } else {
+          appState.draggingMultiStarts = null;
+        }
       } else if (hubId) {
+        appState.draggingMultiStarts = null;
         const cat = getCategoryById(hubId);
         appState.dragStartItemX = cat ? cat.hubX : 0;
         appState.dragStartItemY = cat ? cat.hubY : 0;
@@ -5457,13 +5770,56 @@
       beginDragSession(t.clientX, t.clientY, e.currentTarget, null, catId);
     }
 
+    function startDragZoneGroup(e, catId) {
+      if (e.button !== 0) return;
+      const cat = getCategoryById(catId);
+      if (!cat) return;
+      e.preventDefault();
+      e.stopPropagation();
+      appState.draggingZoneCatId = catId;
+      appState.hasMovedDuringDrag = false;
+      appState.dragStartMouseX = e.clientX;
+      appState.dragStartMouseY = e.clientY;
+      const catTasks = appState.data.tasks.filter(t => t.categoryId === catId);
+      appState.draggingZoneStarts = {
+        cat,
+        hubX: cat.hubX,
+        hubY: cat.hubY,
+        hubEl: document.querySelector(`[data-hub-id="${catId}"]`),
+        tasks: catTasks.map(t => ({ task: t, x: t.x, y: t.y, el: document.querySelector(`[data-node-id="${t.id}"]`) }))
+      };
+    }
+
     function startPanCanvas(e) {
       if (e.button !== 0 && e.button !== 1) return;
-      if (appState.draggingNodeId || appState.draggingHubId) return;
-      if (e.target && e.target.closest && e.target.closest('[data-node-id], [data-hub-id], button, input, select, textarea, label')) return;
+      if (appState.draggingNodeId || appState.draggingHubId || appState.draggingZoneCatId) return;
+      if (e.target && e.target.closest && e.target.closest('[data-node-id], [data-hub-id], .zone-drag-handle, button, input, select, textarea, label')) return;
 
       const vp = document.getElementById('canvasViewport');
       if (!vp) return;
+
+      // Shift + 拖空白 = 框选多张卡片
+      if (e.shiftKey && e.button === 0) {
+        e.preventDefault();
+        const r = vp.getBoundingClientRect();
+        appState.isMarqueeSelecting = true;
+        appState.marqueeStartX = e.clientX - r.left;
+        appState.marqueeStartY = e.clientY - r.top;
+        const box = document.getElementById('marqueeSelectBox');
+        if (box) {
+          box.style.left = appState.marqueeStartX + 'px';
+          box.style.top = appState.marqueeStartY + 'px';
+          box.style.width = '0px';
+          box.style.height = '0px';
+          box.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (appState.selectedTaskIds && appState.selectedTaskIds.size > 0) {
+        clearMultiSelection();
+      }
+
       appState.isPanningCanvas = true;
       appState.panStartX = e.clientX;
       appState.panStartY = e.clientY;
@@ -5556,11 +5912,77 @@
         if (appState.draggingNodeId) {
           const task = getTaskById(appState.draggingNodeId);
           if (task) {
-            task.x = newX;
-            task.y = newY;
-            if (appState.draggedDomEl) {
-              appState.draggedDomEl.style.left = newX + 'px';
-              appState.draggedDomEl.style.top = newY + 'px';
+            if (appState.draggingMultiStarts && appState.draggingMultiStarts.length > 1) {
+              appState.alignGuides = [];
+              appState.draggingMultiStarts.forEach(item => {
+                item.task.x = Math.round(item.x + dxCanvas);
+                item.task.y = Math.round(item.y + dyCanvas);
+                if (item.el) {
+                  item.el.style.left = item.task.x + 'px';
+                  item.el.style.top = item.task.y + 'px';
+                }
+              });
+            } else {
+              // 极轻、不僵硬的视觉参考线与 4px 微吸附（按住 Alt 临时关闭吸附）
+              let snappedX = newX;
+              let snappedY = newY;
+              const guides = [];
+              if (!window.__lastDragAltKey) {
+                const SNAP_R = 4;
+                const SHOW_R = 8;
+                const myH = getNodeHeight(task);
+                const myCx = newX + NODE_W / 2;
+                const myCy = newY + myH / 2;
+                let bestDx = Infinity, bestSnapX = null, bestVGuide = null;
+                let bestDy = Infinity, bestSnapY = null, bestHGuide = null;
+
+                const peers = getFilteredTasks().filter(o => o.id !== task.id);
+                peers.forEach(o => {
+                  const oH = getNodeHeight(o);
+                  const oCx = o.x + NODE_W / 2;
+                  const oCy = o.y + oH / 2;
+                  // 仅参考周围 900px 内的邻居，避免远处干扰
+                  if (Math.abs(o.x - newX) > 900 && Math.abs(o.y - newY) > 900) return;
+
+                  // 垂直对齐（左边缘或中线）
+                  const dLeft = Math.abs(newX - o.x);
+                  if (dLeft <= SHOW_R && dLeft < bestDx) {
+                    bestDx = dLeft;
+                    bestSnapX = dLeft <= SNAP_R ? o.x : null;
+                    bestVGuide = { type: 'v', pos: o.x, start: Math.min(newY, o.y) - 18, end: Math.max(newY + myH, o.y + oH) + 18 };
+                  }
+                  const dCx = Math.abs(myCx - oCx);
+                  if (dCx <= SHOW_R && dCx < bestDx) {
+                    bestDx = dCx;
+                    bestSnapX = dCx <= SNAP_R ? Math.round(oCx - NODE_W / 2) : null;
+                    bestVGuide = { type: 'v', pos: oCx, start: Math.min(newY, o.y) - 18, end: Math.max(newY + myH, o.y + oH) + 18 };
+                  }
+                  // 水平对齐（顶边缘或中线）
+                  const dTop = Math.abs(newY - o.y);
+                  if (dTop <= SHOW_R && dTop < bestDy) {
+                    bestDy = dTop;
+                    bestSnapY = dTop <= SNAP_R ? o.y : null;
+                    bestHGuide = { type: 'h', pos: o.y, start: Math.min(newX, o.x) - 18, end: Math.max(newX + NODE_W, o.x + NODE_W) + 18 };
+                  }
+                  const dCy = Math.abs(myCy - oCy);
+                  if (dCy <= SHOW_R && dCy < bestDy) {
+                    bestDy = dCy;
+                    bestSnapY = dCy <= SNAP_R ? Math.round(oCy - myH / 2) : null;
+                    bestHGuide = { type: 'h', pos: oCy, start: Math.min(newX, o.x) - 18, end: Math.max(newX + NODE_W, o.x + NODE_W) + 18 };
+                  }
+                });
+                if (bestSnapX !== null) snappedX = bestSnapX;
+                if (bestSnapY !== null) snappedY = bestSnapY;
+                if (bestVGuide) guides.push(bestVGuide);
+                if (bestHGuide) guides.push(bestHGuide);
+              }
+              appState.alignGuides = guides;
+              task.x = snappedX;
+              task.y = snappedY;
+              if (appState.draggedDomEl) {
+                appState.draggedDomEl.style.left = snappedX + 'px';
+                appState.draggedDomEl.style.top = snappedY + 'px';
+              }
             }
             autoPanWhileDragging(px, py);
             scheduleEdgesRender();
@@ -5581,6 +6003,50 @@
         return;
       }
 
+      if (appState.draggingZoneCatId && appState.draggingZoneStarts) {
+        const dxScreen = clientX - appState.dragStartMouseX;
+        const dyScreen = clientY - appState.dragStartMouseY;
+        if (Math.abs(dxScreen) > 3 || Math.abs(dyScreen) > 3) appState.hasMovedDuringDrag = true;
+        const dxCanvas = dxScreen / (appState.zoom || 1);
+        const dyCanvas = dyScreen / (appState.zoom || 1);
+        const zs = appState.draggingZoneStarts;
+        zs.cat.hubX = Math.round(zs.hubX + dxCanvas);
+        zs.cat.hubY = Math.round(zs.hubY + dyCanvas);
+        if (zs.hubEl) {
+          zs.hubEl.style.left = zs.cat.hubX + 'px';
+          zs.hubEl.style.top = zs.cat.hubY + 'px';
+        }
+        zs.tasks.forEach(item => {
+          item.task.x = Math.round(item.x + dxCanvas);
+          item.task.y = Math.round(item.y + dyCanvas);
+          if (item.el) {
+            item.el.style.left = item.task.x + 'px';
+            item.el.style.top = item.task.y + 'px';
+          }
+        });
+        scheduleEdgesRender();
+        return;
+      }
+
+      if (appState.isMarqueeSelecting) {
+        const vp = document.getElementById('canvasViewport');
+        const box = document.getElementById('marqueeSelectBox');
+        if (vp && box) {
+          const r = vp.getBoundingClientRect();
+          const curX = clientX - r.left;
+          const curY = clientY - r.top;
+          const left = Math.min(appState.marqueeStartX, curX);
+          const top = Math.min(appState.marqueeStartY, curY);
+          const w = Math.abs(curX - appState.marqueeStartX);
+          const h = Math.abs(curY - appState.marqueeStartY);
+          box.style.left = left + 'px';
+          box.style.top = top + 'px';
+          box.style.width = w + 'px';
+          box.style.height = h + 'px';
+        }
+        return;
+      }
+
       if (appState.isPanningCanvas) {
         appState.panOffsetX = appState.panScrollLeft + (clientX - appState.panStartX);
         appState.panOffsetY = appState.panScrollTop + (clientY - appState.panStartY);
@@ -5589,6 +6055,7 @@
     }
 
     window.addEventListener('mousemove', (e) => {
+      window.__lastDragAltKey = Boolean(e.altKey);
       handlePointerMoveCoords(e.clientX, e.clientY);
     });
 
@@ -5599,6 +6066,51 @@
     }, { passive: true });
 
     function finishDragOrPan() {
+      if (appState.draggingZoneCatId) {
+        const moved = appState.hasMovedDuringDrag;
+        appState.draggingZoneCatId = null;
+        appState.draggingZoneStarts = null;
+        appState.hasMovedDuringDrag = false;
+        if (moved) {
+          ensureCanvasStageSize();
+          saveState();
+          renderGraphCanvas();
+        }
+      }
+      if (appState.isMarqueeSelecting) {
+        appState.isMarqueeSelecting = false;
+        const box = document.getElementById('marqueeSelectBox');
+        const vp = document.getElementById('canvasViewport');
+        const stage = document.getElementById('canvasStage');
+        if (box && vp && stage) {
+          const left = parseFloat(box.style.left) || 0;
+          const top = parseFloat(box.style.top) || 0;
+          const w = parseFloat(box.style.width) || 0;
+          const h = parseFloat(box.style.height) || 0;
+          box.classList.add('hidden');
+          if (w > 8 || h > 8) {
+            const vpRect = vp.getBoundingClientRect();
+            const stageRect = stage.getBoundingClientRect();
+            const z = appState.zoom || 1;
+            const wx1 = (vpRect.left + left - stageRect.left) / z;
+            const wy1 = (vpRect.top + top - stageRect.top) / z;
+            const wx2 = (vpRect.left + left + w - stageRect.left) / z;
+            const wy2 = (vpRect.top + top + h - stageRect.top) / z;
+            if (!appState.selectedTaskIds) appState.selectedTaskIds = new Set();
+            appState.selectedTaskIds.clear();
+            getFilteredTasks().forEach(t => {
+              const th = getNodeHeight(t);
+              if (t.x + NODE_W >= wx1 && t.x <= wx2 && t.y + th >= wy1 && t.y <= wy2) {
+                appState.selectedTaskIds.add(t.id);
+              }
+            });
+            updateMultiSelectUI();
+            if (appState.selectedTaskIds.size > 0) {
+              showToast(`已框选 ${appState.selectedTaskIds.size} 张卡片，拖动任意一张即可批量平移`);
+            }
+          }
+        }
+      }
       if (appState.draggingNodeId || appState.draggingHubId) {
         if (appState.draggedDomEl && appState.draggedDomEl.classList) {
           appState.draggedDomEl.classList.remove('node-dragging');
@@ -5606,8 +6118,10 @@
         const moved = appState.hasMovedDuringDrag;
         appState.draggingNodeId = null;
         appState.draggingHubId = null;
+        appState.draggingMultiStarts = null;
         appState.draggedDomEl = null;
         appState.hasMovedDuringDrag = false;
+        appState.alignGuides = [];
 
         if (moved) {
           appState.suppressNextClick = true;
@@ -5619,6 +6133,8 @@
           } else {
             renderEdgesOnly();
           }
+        } else {
+          renderEdgesOnly();
         }
       }
       if (appState.isPanningCanvas) {
@@ -5650,6 +6166,7 @@
         if (appState.ctxMenuOpen) { hideContextMenu(); return; }
         if (appState.stageQuickTaskId) { hideStageQuickMenu(); return; }
         const modalStack = [
+          ['edgeLabelModal', closeEdgeLabelModal],
           ['confirmActionModal', closeConfirmModal],
           ['countdownModal', closeCountdownModal],
           ['helpGuideModal', closeHelpGuideModal],
@@ -5746,308 +6263,96 @@
       appState.draggingNodeId = null;
       appState.draggingHubId = null;
       appState.draggedDomEl = null;
+      appState.alignGuides = [];
 
       const targetCategories = getVisibleCanvasCategories();
-      // 全部主题预览下自动采用紧凑间距系数，大幅压缩横向与纵向跨度；单课题视图保持舒展间距
-      const isCompactOverview = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && targetCategories.length >= 2;
+      const GRID = 16;
+      const snapG = (v) => Math.round(v / GRID) * GRID;
 
-      // 记录整理前的锚点，保证单课题整理和全部主题整理都不会让视野乱跳！
-      const singleCatAnchor = (!silentInit && targetCategories.length === 1 && Number.isFinite(targetCategories[0].hubX) && Number.isFinite(targetCategories[0].hubY))
-        ? { catId: targetCategories[0].id, hubX: targetCategories[0].hubX, hubY: targetCategories[0].hubY }
-        : null;
-      let overviewAnchor = null;
-      if (!silentInit && isCompactOverview) {
-        const vp = document.getElementById('canvasViewport');
-        const vpW = (vp && vp.clientWidth) || 1000;
-        const vpH = (vp && vp.clientHeight) || 700;
-        const z = appState.zoom || 1;
-        const cx = vpW / 2;
-        const cy = vpH / 2;
-        let bestCat = null;
-        let bestDist = Infinity;
-        targetCategories.forEach(c => {
-          if (!Number.isFinite(c.hubX) || !Number.isFinite(c.hubY)) return;
-          const ct = appState.data.tasks.filter(t => t.categoryId === c.id);
-          const minX = Math.min(c.hubX, ...ct.map(t => t.x));
-          const maxX = Math.max(c.hubX + HUB_W, ...ct.map(t => t.x + NODE_W));
-          const minY = Math.min(c.hubY, ...ct.map(t => t.y));
-          const maxY = Math.max(c.hubY + HUB_H, ...ct.map(t => t.y + getNodeHeight(t)));
-          const sx = ((minX + maxX) / 2) * z + appState.panOffsetX;
-          const sy = ((minY + maxY) / 2) * z + appState.panOffsetY;
-          const d = Math.hypot(sx - cx, sy - cy);
-          if (d < bestDist) { bestDist = d; bestCat = c; }
-        });
-        if (bestCat) {
-          overviewAnchor = {
-            cat: bestCat,
-            screenX: bestCat.hubX * z + appState.panOffsetX,
-            screenY: bestCat.hubY * z + appState.panOffsetY
-          };
-        }
-      }
-      const LEVEL_GAP_X = isCompactOverview ? 296 : 312;     // 层间水平步长（卡片宽 228，留出 68~84px 舒展连线区）
-      const SIBLING_GAP_Y = isCompactOverview ? 14 : 18;     // 同父兄弟节点垂直间距
-      const BRANCH_GAP_Y = isCompactOverview ? 22 : 30;      // 不同根支线垂直间距
-      const HUB_GAP = isCompactOverview ? 48 : 60;           // 课题枢纽到首层节点间距
-      const CAT_GAP_Y = isCompactOverview ? 36 : 52;         // 课题大类之间垂直间距
-      let currentCatTopY = 60;
-
+      // 就近微调对齐：保留用户上下左右自由摆位，只做「近似同行/同列拉齐 + 16px 网格吸附 + 仅推开真正重叠的卡片」
       targetCategories.forEach((cat) => {
         const catTasks = appState.data.tasks.filter(t => t.categoryId === cat.id);
-        if (catTasks.length === 0) {
-          cat.hubX = 100;
-          cat.hubY = currentCatTopY;
-          currentCatTopY += HUB_H + CAT_GAP_Y;
-          return;
-        }
+        if (Number.isFinite(cat.hubX)) cat.hubX = snapG(cat.hubX);
+        if (Number.isFinite(cat.hubY)) cat.hubY = snapG(cat.hubY);
+        if (catTasks.length === 0) return;
 
-        const catTaskSet = new Set(catTasks.map(t => t.id));
-        const sameCatParents = (t) => getTaskDeps(t).map(id => getTaskById(id)).filter(p => p && catTaskSet.has(p.id));
-        const sameCatChildren = (t) => getDownstreamTasks(t.id).filter(c => catTaskSet.has(c.id));
+        // 1) 若存在无有效坐标的旧数据，给一个默认起始位置
+        catTasks.forEach((t, idx) => {
+          if (!Number.isFinite(t.x) || !Number.isFinite(t.y)) {
+            t.x = (cat.hubX || 80) + HUB_W + 56;
+            t.y = (cat.hubY || 80) + idx * (NODE_H + 16);
+          }
+        });
 
-        // ---- 1. 分层：rank = 最长同分类前置链长度 ----
-        const rankMap = {};
-        const rankOf = (t, visited = new Set()) => {
-          if (rankMap[t.id] !== undefined) return rankMap[t.id];
-          if (visited.has(t.id)) return 0;
-          visited.add(t.id);
-          let maxR = 0;
-          sameCatParents(t).forEach(p => {
-            maxR = Math.max(maxR, rankOf(p, new Set(visited)) + 1);
-          });
-          rankMap[t.id] = maxR;
-          return maxR;
+        // 2) 同列就近拉齐（x 差 <= 36px 的卡片视为同一列，齐平到平均 x 的网格点）
+        const byX = catTasks.slice().sort((a, b) => a.x - b.x);
+        let colGroup = [byX[0]];
+        const flushCol = (grp) => {
+          const avgX = snapG(grp.reduce((s, n) => s + n.x, 0) / grp.length);
+          grp.forEach(n => { n.x = avgX; });
         };
-        catTasks.forEach(t => rankOf(t));
-
-        const layers = [];
-        catTasks.forEach(t => {
-          const r = rankMap[t.id] || 0;
-          (layers[r] = layers[r] || []).push(t);
-        });
-
-        // ---- 2. 层内排序：双向重心法（barycenter）减少跨层交叉 ----
-        const posOf = new Map();
-        layers.forEach(layer => {
-          layer.sort((a, b) => String(a.title).localeCompare(String(b.title), 'zh-Hans-CN'));
-          layer.forEach((t, i) => posOf.set(t.id, i));
-        });
-
-        for (let iter = 0; iter < 4; iter++) {
-          for (let r = 1; r < layers.length; r++) {
-            const layer = layers[r];
-            if (!layer || layer.length < 2) continue;
-            const bary = new Map();
-            layer.forEach(t => {
-              const vals = sameCatParents(t).map(p => posOf.get(p.id)).filter(v => v !== undefined);
-              bary.set(t.id, vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : (posOf.get(t.id) || 0));
-            });
-            layer.sort((a, b) => (bary.get(a.id) - bary.get(b.id)) || String(a.title).localeCompare(String(b.title), 'zh-Hans-CN'));
-            layer.forEach((t, i) => posOf.set(t.id, i));
-          }
-          for (let r = layers.length - 2; r >= 0; r--) {
-            const layer = layers[r];
-            if (!layer || layer.length < 2) continue;
-            const bary = new Map();
-            layer.forEach(t => {
-              const vals = sameCatChildren(t).map(c => posOf.get(c.id)).filter(v => v !== undefined);
-              bary.set(t.id, vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : (posOf.get(t.id) || 0));
-            });
-            layer.sort((a, b) => (bary.get(a.id) - bary.get(b.id)) || String(a.title).localeCompare(String(b.title), 'zh-Hans-CN'));
-            layer.forEach((t, i) => posOf.set(t.id, i));
-          }
-        }
-
-        // ---- 3. 构建主生成树（Spanning Forest）并按子树包围盒（CompactBox）递归排布 ----
-        // 每个非根节点选一个主父节点（优先选紧邻上一层 rank - 1 的前置）；
-        // 仅当某节点是多个父节点「唯一共同汇合点」且这些父节点各自没有别的子节点时，先作为汇合组处理。
-        const treeChildren = new Map();
-        catTasks.forEach(t => treeChildren.set(t.id, []));
-        const primaryParent = new Map();
-
-        catTasks.forEach(t => {
-          const parents = sameCatParents(t);
-          if (parents.length === 0) return;
-          // 选 rank 最大（离自己最近）、同层顺序最靠前的父节点作为生成树主父节点
-          parents.sort((a, b) => (rankMap[b.id] - rankMap[a.id]) || ((posOf.get(a.id) || 0) - (posOf.get(b.id) || 0)));
-          const chosen = parents[0];
-          primaryParent.set(t.id, chosen.id);
-          treeChildren.get(chosen.id).push(t);
-        });
-
-        // 子树子节点按层内重心顺序排列
-        treeChildren.forEach(list => {
-          list.sort((a, b) => (posOf.get(a.id) || 0) - (posOf.get(b.id) || 0));
-        });
-
-        // 收集子树内所有节点以便整体平移
-        const getSubtreeNodes = (rootTask) => {
-          const acc = [rootTask];
-          const kids = treeChildren.get(rootTask.id) || [];
-          kids.forEach(k => acc.push(...getSubtreeNodes(k)));
-          return acc;
-        };
-
-        // 递归排布单棵子树，返回该子树占用的 [minY, maxY]
-        const layoutSubtree = (node, startTopY) => {
-          const kids = treeChildren.get(node.id) || [];
-          const selfH = getNodeHeight(node);
-          if (kids.length === 0) {
-            node.y = Math.round(startTopY);
-            return { top: node.y, bottom: node.y + selfH };
-          }
-
-          let cursorY = startTopY;
-          let minBoxTop = Infinity;
-          let maxBoxBottom = -Infinity;
-          kids.forEach((child, idx) => {
-            const box = layoutSubtree(child, cursorY);
-            if (box.top < minBoxTop) minBoxTop = box.top;
-            if (box.bottom > maxBoxBottom) maxBoxBottom = box.bottom;
-            cursorY = box.bottom + SIBLING_GAP_Y;
-          });
-
-          // 关键：1 对 1 时父子严格同高（y 相等 → 端口连线 100% 水平直线）；
-          // 1 对多时父节点端口居中于【自己首尾子节点】端口中点！
-          if (kids.length === 1) {
-            node.y = kids[0].y;
+        for (let i = 1; i < byX.length; i++) {
+          const prev = colGroup[colGroup.length - 1];
+          if (Math.abs(byX[i].x - prev.x) <= 36) {
+            colGroup.push(byX[i]);
           } else {
-            const firstKid = kids[0];
-            const lastKid = kids[kids.length - 1];
-            node.y = Math.round((firstKid.y + lastKid.y) / 2);
+            flushCol(colGroup);
+            colGroup = [byX[i]];
           }
+        }
+        flushCol(colGroup);
 
-          // 若父节点自身比首子更高导致越过 startTopY，把整棵子树一起往下推回 startTopY
-          const subTop = Math.min(node.y, minBoxTop);
-          if (subTop < startTopY) {
-            const shift = Math.round(startTopY - subTop);
-            getSubtreeNodes(node).forEach(n => { n.y += shift; });
-            minBoxTop += shift;
-            maxBoxBottom += shift;
-          }
-
-          const finalTop = Math.min(node.y, minBoxTop);
-          const finalBottom = Math.max(node.y + selfH, maxBoxBottom);
-          return { top: finalTop, bottom: finalBottom };
+        // 3) 同行就近拉齐（y 差 <= 24px 的卡片视为同一行，齐平到平均 y 的网格点）
+        const byY = catTasks.slice().sort((a, b) => a.y - b.y);
+        let rowGroup = [byY[0]];
+        const flushRow = (grp) => {
+          const avgY = snapG(grp.reduce((s, n) => s + n.y, 0) / grp.length);
+          grp.forEach(n => { n.y = avgY; });
         };
+        for (let i = 1; i < byY.length; i++) {
+          const prev = rowGroup[rowGroup.length - 1];
+          if (Math.abs(byY[i].y - prev.y) <= 24) {
+            rowGroup.push(byY[i]);
+          } else {
+            flushRow(rowGroup);
+            rowGroup = [byY[i]];
+          }
+        }
+        flushRow(rowGroup);
 
-        const roots = (layers[0] || []).slice();
-        let branchCursorY = currentCatTopY;
-        roots.forEach((rootNode) => {
-          const box = layoutSubtree(rootNode, branchCursorY);
-          // 不同根支线之间留出明显的支线呼吸间距 BRANCH_GAP_Y
-          branchCursorY = box.bottom + BRANCH_GAP_Y;
-        });
-
-        // ---- 3.5 多前置汇合节点（A + B → D）对齐修正 + 同层防碰撞保护 ----
-        // 当节点 D 同时依赖多个前置（如 B 和 C）时，将 D（及其下游）移向所有前置父节点的垂直中点
-        for (let r = 1; r < layers.length; r++) {
-          const layer = layers[r];
-          if (!layer) continue;
-          layer.forEach(t => {
-            const parents = sameCatParents(t);
-            if (parents.length >= 2) {
-              const avgParentY = Math.round(parents.reduce((s, p) => s + p.y, 0) / parents.length);
-              const delta = avgParentY - t.y;
-              if (delta !== 0) {
-                getSubtreeNodes(t).forEach(sub => { sub.y += delta; });
+        // 4) 仅针对真正互相压住的卡片，沿位移最小方向轻轻推开（保留原四向格局）
+        const PAD_X = 16;
+        const PAD_Y = 16;
+        for (let pass = 0; pass < 6; pass++) {
+          let movedAny = false;
+          for (let i = 0; i < catTasks.length; i++) {
+            for (let j = i + 1; j < catTasks.length; j++) {
+              const a = catTasks[i];
+              const b = catTasks[j];
+              const overlapX = (NODE_W + PAD_X) - Math.abs(a.x - b.x);
+              const overlapY = (NODE_H + PAD_Y) - Math.abs(a.y - b.y);
+              if (overlapX > 0 && overlapY > 0) {
+                movedAny = true;
+                if (overlapY <= overlapX) {
+                  const dir = (b.y >= a.y) ? 1 : -1;
+                  b.y = snapG(b.y + dir * overlapY);
+                } else {
+                  const dir = (b.x >= a.x) ? 1 : -1;
+                  b.x = snapG(b.x + dir * overlapX);
+                }
               }
             }
-          });
-          // 同层从上往下做一次局部防重叠推开（仅在真发生碰撞时推开碰撞节点，绝不打包整列）
-          const sortedLayer = layer.slice().sort((a, b) => (a.y - b.y) || ((posOf.get(a.id) || 0) - (posOf.get(b.id) || 0)));
-          for (let i = 1; i < sortedLayer.length; i++) {
-            const prev = sortedLayer[i - 1];
-            const curr = sortedLayer[i];
-            const minAllowedY = prev.y + getNodeHeight(prev) + SIBLING_GAP_Y;
-            if (curr.y < minAllowedY) {
-              const push = Math.round(minAllowedY - curr.y);
-              curr.y += push;
-            }
           }
+          if (!movedAny) break;
         }
-
-        // 反向微调：若子层因多父汇合移动过，让纯单亲父节点重新对齐其子节点组中点（不跨支线移动）
-        for (let r = layers.length - 2; r >= 0; r--) {
-          const layer = layers[r];
-          if (!layer) continue;
-          const sortedLayer = layer.slice().sort((a, b) => (a.y - b.y) || ((posOf.get(a.id) || 0) - (posOf.get(b.id) || 0)));
-          sortedLayer.forEach((t, idx) => {
-            const kids = treeChildren.get(t.id) || [];
-            if (kids.length === 0) return;
-            // 仅当子节点全都是单亲（只依赖 t）时，t 才严格居中于 kids
-            const allSingleParent = kids.every(k => sameCatParents(k).length === 1);
-            if (!allSingleParent) return;
-            const desiredY = Math.round((kids[0].y + kids[kids.length - 1].y) / 2);
-            const minY = idx > 0 ? sortedLayer[idx - 1].y + getNodeHeight(sortedLayer[idx - 1]) + SIBLING_GAP_Y : -Infinity;
-            const maxY = idx < sortedLayer.length - 1 ? sortedLayer[idx + 1].y - getNodeHeight(t) - SIBLING_GAP_Y : Infinity;
-            if (desiredY >= minY && desiredY <= maxY) {
-              t.y = desiredY;
-            }
-          });
-        }
-
-        // 整块归一：把本分类所有节点平移回 currentCatTopY 基线
-        const catMinY = Math.min(...catTasks.map(t => t.y));
-        if (catMinY !== currentCatTopY) {
-          const delta = currentCatTopY - catMinY;
-          catTasks.forEach(t => { t.y += delta; });
-        }
-
-        // ---- 4. 横向：按深度层放置 ----
-        const baseHubX = 100;
-        catTasks.forEach(t => {
-          const r = rankMap[t.id] || 0;
-          t.x = baseHubX + HUB_W + HUB_GAP + r * LEVEL_GAP_X;
-        });
-
-        // ---- 5. 课题枢纽卡片：右侧出线口（hubY + 38）精准对齐首层根节点入线口中点 ----
-        const firstLayer = (layers[0] || []).slice().sort((a, b) => a.y - b.y);
-        if (firstLayer.length > 0) {
-          const firstPortY = firstLayer[0].y + PORT_OFFSET_Y;
-          const lastPortY = firstLayer[firstLayer.length - 1].y + PORT_OFFSET_Y;
-          cat.hubX = baseHubX;
-          cat.hubY = Math.round((firstPortY + lastPortY) / 2 - 38);
-        } else {
-          cat.hubX = baseHubX;
-          cat.hubY = currentCatTopY;
-        }
-
-        const maxTaskBottom = Math.max(cat.hubY + HUB_H, ...catTasks.map(t => t.y + getNodeHeight(t)));
-        currentCatTopY = maxTaskBottom + CAT_GAP_Y;
       });
-
-      // 单课题整理：把整棵树平移回原来的主题枢纽坐标，视野纹丝不动，且切回「全部主题」绝不会压到其他课题上！
-      if (singleCatAnchor) {
-        const cat = targetCategories[0];
-        const dx = Math.round(singleCatAnchor.hubX - cat.hubX);
-        const dy = Math.round(singleCatAnchor.hubY - cat.hubY);
-        if (dx !== 0 || dy !== 0) {
-          cat.hubX += dx;
-          cat.hubY += dy;
-          appState.data.tasks.filter(t => t.categoryId === cat.id).forEach(t => {
-            t.x += dx;
-            t.y += dy;
-          });
-        }
-      }
-
-      // 多课题全览下，将排好内部子树的各个课题块排成限宽纵向行矩阵，并保持当前盯着看的主题枢纽屏幕位置不动
-      if (!appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && getActiveCategories().length >= 2) {
-        syncHubPositions();
-        if (overviewAnchor && overviewAnchor.cat) {
-          const z = appState.zoom || 1;
-          appState.panOffsetX = Math.round(overviewAnchor.screenX - overviewAnchor.cat.hubX * z);
-          appState.panOffsetY = Math.round(overviewAnchor.screenY - overviewAnchor.cat.hubY * z);
-        }
-      }
 
       if (!silentInit) {
         saveState();
         renderGraphCanvas();
         applyStageTransform();
       }
-      if (showMsg) showToast('✨ 已整理卡片坐标（保持当前视角不变，可点「撤销排版」还原）');
+      if (showMsg) showToast('✨ 已就近对齐卡片并解开重叠（保留你的自由排布，可点「撤销排版」还原）');
     }
 
     // 卡片标题原地双击改名 & 阶段标签快速切换浮层
@@ -6224,6 +6529,7 @@
     }
 
     function closeNewTaskModal() {
+      appState.convertingMemoId = null;
       const modal = document.getElementById('newTaskModal');
       modal.classList.add('hidden');
       modal.classList.remove('flex');
@@ -6302,6 +6608,10 @@
 
       appState.data.tasks.push(newTask);
       appState.selectedTaskId = newTask.id;
+      if (appState.convertingMemoId && Array.isArray(appState.data.memos)) {
+        appState.data.memos = appState.data.memos.filter(m => m.id !== appState.convertingMemoId);
+        appState.convertingMemoId = null;
+      }
       let autoExpandedDepth = false;
       if (isOverviewDepthTrimmed()) {
         const dMap = computeSameCatDepthMap(categoryId);
@@ -6412,30 +6722,30 @@
     }
 
     // Drag from right blue port dot (port-out-dot) to connect two tasks visually OR drop on blank canvas to spawn next step!
-    function startPortWireDrag(e, fromTaskId) {
+    function startPortWireDrag(e, fromTaskId, side = 'right') {
       e.preventDefault();
       e.stopPropagation();
-      beginInteractiveWireSession(fromTaskId, e.clientX, e.clientY, false);
+      beginInteractiveWireSession(fromTaskId, e.clientX, e.clientY, false, side);
     }
 
-    function startPortWireTouch(e, fromTaskId) {
+    function startPortWireTouch(e, fromTaskId, side = 'right') {
       if (!e.touches || e.touches.length !== 1) return;
       e.preventDefault();
       e.stopPropagation();
-      beginInteractiveWireSession(fromTaskId, e.touches[0].clientX, e.touches[0].clientY, false);
+      beginInteractiveWireSession(fromTaskId, e.touches[0].clientX, e.touches[0].clientY, false, side);
     }
 
-    function startHubPortWireDrag(e, fromCatId) {
+    function startHubPortWireDrag(e, fromCatId, side = 'right') {
       e.preventDefault();
       e.stopPropagation();
-      beginHubWireSession(fromCatId, e.clientX, e.clientY);
+      beginHubWireSession(fromCatId, e.clientX, e.clientY, side);
     }
 
-    function startHubPortWireTouch(e, fromCatId) {
+    function startHubPortWireTouch(e, fromCatId, side = 'right') {
       if (!e.touches || e.touches.length !== 1) return;
       e.preventDefault();
       e.stopPropagation();
-      beginHubWireSession(fromCatId, e.touches[0].clientX, e.touches[0].clientY);
+      beginHubWireSession(fromCatId, e.touches[0].clientX, e.touches[0].clientY, side);
     }
 
     // ===== 数据文件夹：实时落盘 + 打开自动读回 + 每日备份 =====
@@ -6533,6 +6843,7 @@
       if (Array.isArray(data.tasks) && data.tasks.length > 0) return true;
       if (Array.isArray(data.trash) && data.trash.length > 0) return true;
       if (Array.isArray(data.countdowns) && data.countdowns.length > 0) return true;
+      if (Array.isArray(data.memos) && data.memos.length > 0) return true;
       const cats = Array.isArray(data.categories) ? data.categories : [];
       if (cats.length > 2) return true;
       if (cats.some(c => c && c.archived)) return true;
@@ -6960,44 +7271,191 @@
 
 
     // Flomo / Apple Notes style instant quick memo & task capture
+    const MEMO_STYLES = {
+      amber:   { bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-950',   badge: 'bg-amber-100 text-amber-800' },
+      emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-950', badge: 'bg-emerald-100 text-emerald-800' },
+      violet:  { bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-950',  badge: 'bg-violet-100 text-violet-800' },
+      rose:    { bg: 'bg-rose-50',    border: 'border-rose-200',    text: 'text-rose-950',    badge: 'bg-rose-100 text-rose-800' }
+    };
+
+    function getSortedMemos() {
+      const list = Array.isArray(appState.data.memos) ? appState.data.memos : [];
+      return list.slice().sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+        return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
+      });
+    }
+
+    function updateMemoNavBadge() {
+      const count = Array.isArray(appState.data.memos) ? appState.data.memos.length : 0;
+      const badge = document.getElementById('navMemoBadge');
+      if (badge) {
+        badge.textContent = String(count);
+        badge.classList.toggle('hidden', count === 0);
+      }
+      const wallBadge = document.getElementById('memoTotalCountBadge');
+      if (wallBadge) wallBadge.textContent = `${count} 条便签`;
+    }
+
+    function buildRecentMemoStripHtml() {
+      const sorted = getSortedMemos();
+      if (sorted.length === 0) return '';
+      const preview = sorted.slice(0, 3);
+      const itemsHtml = preview.map(m => {
+        const st = MEMO_STYLES[m.color] || MEMO_STYLES.amber;
+        return `
+          <div class="flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-xl ${st.bg} border ${st.border} text-[12px]">
+            <div class="min-w-0 flex-1 ${st.text} leading-snug break-words cursor-pointer" onclick="setAppView('memo')" title="点击去便签墙编辑">
+              ${m.pinned ? '<span class="mr-1">📌</span>' : ''}${escapeHtml(m.text)}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="convertMemoToTask('${m.id}')" title="转为正式科研卡片" class="px-1.5 py-0.5 rounded bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-700 text-[10.5px] font-semibold transition">↗转卡片</button>
+              <button type="button" onclick="deleteMemo('${m.id}')" title="删除这条便签" class="px-1 py-0.5 rounded hover:bg-rose-100 text-slate-400 hover:text-rose-600 text-[11px] leading-none">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return `
+        <div class="mb-2.5 rounded-2xl bg-amber-50/75 border border-amber-200/90 p-2.5 space-y-1.5 shadow-sm">
+          <div class="flex items-center justify-between px-0.5">
+            <span class="text-[11.5px] font-bold text-amber-900 flex items-center gap-1">📝 临时便签 <span class="px-1.5 py-0 rounded-full bg-amber-200/80 text-amber-900 text-[10.5px]">${sorted.length}</span></span>
+            <button type="button" onclick="setAppView('memo')" class="text-[11px] font-semibold text-amber-800 hover:text-amber-950 hover:underline">便签墙全部 →</button>
+          </div>
+          ${itemsHtml}
+        </div>
+      `;
+    }
+
+    function addMemoItem(text, color = 'amber') {
+      const clean = String(text || '').trim();
+      if (!clean) return null;
+      if (!Array.isArray(appState.data.memos)) appState.data.memos = [];
+      const now = new Date().toISOString();
+      const memo = {
+        id: 'memo-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        text: clean,
+        color: MEMO_STYLES[color] ? color : 'amber',
+        pinned: false,
+        createdAt: now,
+        updatedAt: now
+      };
+      appState.data.memos.unshift(memo);
+      saveState();
+      renderAll();
+      return memo;
+    }
+
     function submitQuickMemo() {
       const inp = document.getElementById('quickMemoInput');
       if (!inp || !inp.value.trim()) return;
-      const text = inp.value.trim();
-      const activeCats = getActiveCategories();
-      const catPool = activeCats.length ? activeCats : appState.data.categories;
-      const chosenCatId = (appState.selectedCategoryId !== 'all' && !isCategoryArchived(appState.selectedCategoryId))
-        ? appState.selectedCategoryId
-        : (catPool[catPool.length - 1] ? catPool[catPool.length - 1].id : '');
-      const cat = getCategoryById(chosenCatId);
-      const catRoots = appState.data.tasks.filter(t => t.categoryId === chosenCatId && getTaskDeps(t).length === 0);
-      const newTask = {
-        id: 'task-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        categoryId: chosenCatId,
-        title: text,
-        stage: '',
-        parentId: null,
-        deps: [],
-        status: 'todo',
-        isRecent: false,
-        dueDate: '',
-        createdAt: new Date().toISOString(),
-        x: cat ? cat.hubX + HUB_W + 52 : 300,
-        y: cat ? cat.hubY + catRoots.length * 96 : 140,
-        notes: '',
-        subtasks: []
-      };
-      // 快速记录只追加一张卡片，绝不重排整张图（手工摆过位的人的布局优先）
-      let guard = 0;
-      while (guard++ < 200 && appState.data.tasks.some(t => Math.abs(t.x - newTask.x) < 190 && Math.abs(t.y - newTask.y) < 88)) {
-        newTask.y += 96;
-      }
-      appState.data.tasks.push(newTask);
-      appState.selectedTaskId = newTask.id;
+      addMemoItem(inp.value.trim(), 'amber');
       inp.value = '';
+      showToast('📝 已记入暖黄便签（置顶显示，同步至便签墙）');
+    }
+
+    function setNewMemoColor(color) {
+      appState.newMemoColor = MEMO_STYLES[color] ? color : 'amber';
+      ['amber', 'emerald', 'violet', 'rose'].forEach(c => {
+        const b = document.getElementById('memoColorBtn_' + c);
+        if (!b) return;
+        b.classList.toggle('ring-2', c === appState.newMemoColor);
+        b.classList.toggle('ring-amber-300', c === appState.newMemoColor && c === 'amber');
+        b.classList.toggle('ring-emerald-300', c === appState.newMemoColor && c === 'emerald');
+        b.classList.toggle('ring-violet-300', c === appState.newMemoColor && c === 'violet');
+        b.classList.toggle('ring-rose-300', c === appState.newMemoColor && c === 'rose');
+      });
+    }
+
+    function submitMemoFromPage() {
+      const inp = document.getElementById('memoPageInput');
+      if (!inp || !inp.value.trim()) { showToast('请先写点内容再保存'); return; }
+      addMemoItem(inp.value.trim(), appState.newMemoColor || 'amber');
+      inp.value = '';
+      showToast('📝 已贴上一张新便签');
+    }
+
+    function updateMemoText(memoId, newText) {
+      const list = appState.data.memos || [];
+      const m = list.find(x => x.id === memoId);
+      if (!m) return;
+      const clean = String(newText || '').trim();
+      if (!clean) return;
+      if (clean !== m.text) {
+        m.text = clean;
+        m.updatedAt = new Date().toISOString();
+        saveState();
+        renderRecentTasksList();
+      }
+    }
+
+    function toggleMemoPin(memoId) {
+      const m = (appState.data.memos || []).find(x => x.id === memoId);
+      if (!m) return;
+      m.pinned = !m.pinned;
+      m.updatedAt = new Date().toISOString();
       saveState();
       renderAll();
-      showToast('⚡ 已记入科研脉络与近期队列');
+    }
+
+    function changeMemoColor(memoId, color) {
+      const m = (appState.data.memos || []).find(x => x.id === memoId);
+      if (!m || !MEMO_STYLES[color]) return;
+      m.color = color;
+      saveState();
+      renderAll();
+    }
+
+    function deleteMemo(memoId) {
+      if (!Array.isArray(appState.data.memos)) return;
+      appState.data.memos = appState.data.memos.filter(x => x.id !== memoId);
+      saveState();
+      renderAll();
+      showToast('已移除该便签');
+    }
+
+    function convertMemoToTask(memoId) {
+      const m = (appState.data.memos || []).find(x => x.id === memoId);
+      if (!m) return;
+      appState.convertingMemoId = memoId;
+      openNewTaskModal(null, null, null, false);
+      const lines = m.text.split('\n');
+      const titleInp = document.getElementById('inputTaskTitle');
+      const notesInp = document.getElementById('inputTaskNotes');
+      if (titleInp) titleInp.value = lines[0].slice(0, 60);
+      if (notesInp && lines.length > 1) notesInp.value = lines.slice(1).join('\n');
+    }
+
+    function renderMemoView() {
+      updateMemoNavBadge();
+      const grid = document.getElementById('memoWallGrid');
+      if (!grid) return;
+      const sorted = getSortedMemos();
+      if (sorted.length === 0) {
+        grid.innerHTML = `<div class="col-span-full bg-white/80 border border-dashed border-amber-300 rounded-2xl p-10 text-center text-slate-500 text-[13.5px]">还没有便签——在上方写一条，或在近期看板用「记一笔」随手贴过来吧 📝</div>`;
+        return;
+      }
+      grid.innerHTML = sorted.map(m => {
+        const st = MEMO_STYLES[m.color] || MEMO_STYLES.amber;
+        const dt = m.createdAt ? formatShortYYMMDD(m.createdAt) : '';
+        return `
+          <div class="rounded-2xl ${st.bg} border ${st.border} shadow-sm p-3.5 flex flex-col justify-between gap-2.5 min-h-[150px] transition hover:shadow-md">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="toggleMemoPin('${m.id}')" title="${m.pinned ? '取消置顶' : '置顶便签'}" class="text-[12px] px-1.5 py-0.5 rounded-md ${m.pinned ? 'bg-amber-300/80 text-amber-950 font-bold' : 'bg-white/60 text-slate-400 hover:text-amber-700'}">📌${m.pinned ? ' 已置顶' : ''}</button>
+                <span class="text-[11px] text-slate-400 tabular-nums">${escapeHtml(dt)}</span>
+              </div>
+              <div class="flex items-center gap-1">
+                ${['amber','emerald','violet','rose'].map(c => `<button type="button" onclick="changeMemoColor('${m.id}', '${c}')" class="w-3.5 h-3.5 rounded-full bg-${c}-300 border ${m.color===c?'border-slate-700 scale-110':'border-white/80 opacity-60 hover:opacity-100'} transition" title="切换颜色"></button>`).join('')}
+              </div>
+            </div>
+            <textarea rows="3" onblur="updateMemoText('${m.id}', this.value)" class="w-full flex-1 bg-transparent ${st.text} text-[13px] leading-relaxed focus:outline-none focus:bg-white/70 rounded-lg p-1.5 resize-none">${escapeHtml(m.text)}</textarea>
+            <div class="pt-2 border-t ${st.border} flex items-center justify-between text-[11.5px]">
+              <button type="button" onclick="convertMemoToTask('${m.id}')" class="px-2 py-0.5 rounded-lg bg-white/85 hover:bg-indigo-600 text-indigo-700 hover:text-white font-semibold border border-indigo-200/70 transition">↗ 转为正式卡片</button>
+              <button type="button" onclick="deleteMemo('${m.id}')" class="px-2 py-0.5 rounded-lg hover:bg-rose-100 text-slate-400 hover:text-rose-600 font-medium transition">删除</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function exportBackupJsonFile() {
@@ -7212,7 +7670,9 @@
         note: cd.note || '',
         pinned: Boolean(cd.pinned)
       }));
-      return JSON.stringify({ c: cats, t: tasks, tr: trash, cd: cds });
+      const memos = (data.memos || []).map(m => ({ id: m.id, text: m.text, color: m.color, pinned: Boolean(m.pinned) }));
+      const el = data.edgeLabels || {};
+      return JSON.stringify({ c: cats, t: tasks, tr: trash, cd: cds, m: memos, el });
     }
 
     async function adoptDirData(dir) {
