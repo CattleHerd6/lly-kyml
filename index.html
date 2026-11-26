@@ -846,10 +846,28 @@
               <input id="searchNodeInput" oninput="handleSearchInput(this.value)" type="text" placeholder="🔍 搜索节点或备注..." class="text-[13px] bg-slate-100/90 border border-slate-200/90 rounded-xl pl-3 pr-6 py-1.5 w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
               <button id="clearSearchBtn" type="button" onclick="clearSearchInput()" title="清空搜索" class="hidden absolute right-2 text-[12px] text-slate-400 hover:text-slate-700 font-bold leading-none">✕</button>
             </div>
-            <button onclick="autoLayoutNodes(true)" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="就近对齐同行同列卡片并轻解重叠，保留你的四向自由摆位（可撤销）">
-              就近对齐整理
-            </button>
-            <button id="undoLayoutBtn" type="button" onclick="undoAutoLayout()" class="hidden btn-soft px-2.5 py-1.5 rounded-xl text-amber-700 text-[12.5px] font-semibold" title="撤回刚刚的自动排版，恢复手动摆放坐标">
+            <div class="relative inline-flex items-center" id="layoutMenuWrap">
+              <button type="button" onclick="autoLayoutNodes(true)" class="btn-soft pl-3 pr-2 py-1.5 rounded-l-xl text-slate-700 text-[13px] font-medium border-r-0" title="就近对齐同行同列卡片并轻解重叠，保留你的四向自由摆位（可撤销）">
+                就近对齐
+              </button>
+              <button type="button" onclick="toggleLayoutMenu(event)" class="btn-soft px-1.5 py-1.5 rounded-r-xl text-slate-500 hover:text-indigo-700 text-[12px] font-bold" title="更多整理方式：课题块紧凑拼合 / 经典向右树状重排">▾</button>
+              <div id="layoutModeMenu" class="hidden absolute right-0 top-full mt-1.5 w-56 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xl z-50 text-[12.5px] text-slate-700">
+                <button type="button" onclick="hideLayoutMenu(); autoLayoutNodes(true)" class="ctx-item">
+                  <span class="ctx-icon">📐</span>
+                  <span class="flex-1"><span class="font-semibold block">就近对齐整理</span><span class="text-[11px] text-slate-400">保留四向摆位，微调对齐防重叠</span></span>
+                </button>
+                <button type="button" onclick="hideLayoutMenu(); packCategoryBlocksTightly(true)" class="ctx-item">
+                  <span class="ctx-icon">🧲</span>
+                  <span class="flex-1"><span class="font-semibold block">课题块紧凑拼合</span><span class="text-[11px] text-slate-400">锁住内部四向摆位，拉近各课题</span></span>
+                </button>
+                <div class="ctx-sep"></div>
+                <button type="button" onclick="hideLayoutMenu(); autoLayoutTreeClassic(true)" class="ctx-item">
+                  <span class="ctx-icon">🌿</span>
+                  <span class="flex-1"><span class="font-semibold block">向右树状重排</span><span class="text-[11px] text-slate-400">经典从左到右层级脉络排版</span></span>
+                </button>
+              </div>
+            </div>
+            <button id="undoLayoutBtn" type="button" onclick="undoAutoLayout()" class="hidden btn-soft px-2.5 py-1.5 rounded-xl text-amber-700 text-[12.5px] font-semibold" title="撤回刚刚的排版，恢复之前坐标">
               ↩ 撤销排版
             </button>
             <div class="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
@@ -857,8 +875,11 @@
               <button id="zoomLabel" type="button" onclick="resetZoom()" class="text-[13px] text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md py-0.5 w-11 text-center font-semibold transition" title="点击恢复 100% 缩放">100%</button>
               <button onclick="zoomCanvas(0.1)" class="px-2 py-1 rounded-lg hover:bg-white text-slate-700 text-[13px] font-bold transition" title="放大">+</button>
             </div>
-            <button onclick="resetCanvasPosition()" class="btn-soft px-3 py-1.5 rounded-xl text-indigo-700 text-[13px] font-semibold" title="回到顶部/居中起点（全部主题回到顶部，单课题居中）">
-              ⌖ 回到起点
+            <button onclick="fitCanvasToScreen()" class="btn-soft px-2.5 py-1.5 rounded-xl text-slate-700 hover:text-indigo-700 text-[13px] font-medium" title="将当前可见脉络缩放铺满整个画布窗口，一眼看全">
+              ⛶ 铺满
+            </button>
+            <button onclick="resetCanvasPosition()" class="btn-soft px-2.5 py-1.5 rounded-xl text-indigo-700 text-[13px] font-semibold" title="回到顶部/居中起点（全部主题回到顶部，单课题居中）">
+              ⌖ 起点
             </button>
             <button id="toggleInspectorBtn" onclick="toggleInspectorDrawer()" class="btn-soft px-3 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium" title="展开或收起右侧详情编辑栏">
               侧栏详情
@@ -1067,6 +1088,7 @@
         <button onclick="closeConfirmModal()" class="btn-soft px-4 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium">取消</button>
         <!-- 破坏性的「覆盖硬盘」只挂在这个显式按钮上；Esc / ✕ / 取消永远碰不到它 -->
         <button id="confirmModalExtraBtn" onclick="runConfirmExtra()" class="hidden px-4 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-[13px] font-semibold transition"></button>
+        <button id="confirmModalMergeBtn" onclick="runConfirmMerge()" class="hidden px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-semibold transition"></button>
         <button id="confirmModalProceedBtn" onclick="runConfirmProceed()" class="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[13px] font-semibold transition">确认执行</button>
       </div>
     </div>
@@ -1936,6 +1958,7 @@
       marqueeStartX: 0,
       marqueeStartY: 0,
       alignGuides: [],
+      overviewTempOffsets: new Map(),
       newMemoColor: 'amber',
       convertingMemoId: null,
       editingEdgeKey: null,
@@ -2126,6 +2149,7 @@
       appState.pendingConfirmCallback = null;
       appState.pendingDismissCallback = null;
       appState.pendingExtraAction = null;
+      appState.pendingMergeAction = null;
     }
 
     function hideConfirmModalDom() {
@@ -2133,6 +2157,8 @@
       if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
       const extra = document.getElementById('confirmModalExtraBtn');
       if (extra) { extra.classList.add('hidden'); extra.textContent = ''; }
+      const mergeBtn = document.getElementById('confirmModalMergeBtn');
+      if (mergeBtn) { mergeBtn.classList.add('hidden'); mergeBtn.textContent = ''; }
     }
 
     // opts: { confirmLabel, extra: {label, action}, onDismiss }
@@ -2143,6 +2169,7 @@
       appState.pendingConfirmCallback = onConfirm;
       appState.pendingDismissCallback = typeof o.onDismiss === 'function' ? o.onDismiss : null;
       appState.pendingExtraAction = (o.extra && typeof o.extra.action === 'function') ? o.extra.action : null;
+      appState.pendingMergeAction = (o.merge && typeof o.merge.action === 'function') ? o.merge.action : null;
 
       const proceed = document.getElementById('confirmModalProceedBtn');
       if (proceed) proceed.textContent = o.confirmLabel || '确认执行';
@@ -2153,6 +2180,15 @@
           extraBtn.classList.remove('hidden');
         } else {
           extraBtn.classList.add('hidden');
+        }
+      }
+      const mergeBtn = document.getElementById('confirmModalMergeBtn');
+      if (mergeBtn) {
+        if (o.merge && o.merge.label) {
+          mergeBtn.textContent = o.merge.label;
+          mergeBtn.classList.remove('hidden');
+        } else {
+          mergeBtn.classList.add('hidden');
         }
       }
       const m = document.getElementById('confirmActionModal');
@@ -2176,6 +2212,13 @@
 
     function runConfirmExtra() {
       const fn = appState.pendingExtraAction;
+      clearConfirmCallbacks();
+      hideConfirmModalDom();
+      if (typeof fn === 'function') fn();
+    }
+
+    function runConfirmMerge() {
+      const fn = appState.pendingMergeAction;
       clearConfirmCallbacks();
       hideConfirmModalDom();
       if (typeof fn === 'function') fn();
@@ -4231,6 +4274,66 @@
       return getNodeHeight(task);
     }
 
+    // 总览分级折叠（2级/3级）时的「无损临时紧贴偏移」：只调整渲染位置，绝不改写用户真实坐标、不触发同步脏标记
+    function recomputeOverviewTempOffsets() {
+      const map = new Map();
+      const visibleCategories = getVisibleCanvasCategories();
+      if (appState.viewingArchivedCatId || appState.selectedCategoryId !== 'all' || visibleCategories.length < 2 || !isOverviewDepthTrimmed()) {
+        appState.overviewTempOffsets = map;
+        return map;
+      }
+      const filteredTasks = getFilteredTasks();
+      const CAT_GAP_X = 52;
+      const CAT_GAP_Y = 52;
+      const START_X = 60;
+      const START_Y = 60;
+      const vp = document.getElementById('canvasViewport');
+      const vpW = Math.max(960, (vp && vp.clientWidth) || 1280);
+      const MAX_ROW_W = Math.max(1120, Math.round(vpW * 1.15));
+
+      const blocks = visibleCategories.map(cat => {
+        const nodes = filteredTasks.filter(t => t.categoryId === cat.id);
+        const left = Math.min(cat.hubX, ...nodes.map(t => t.x));
+        const right = Math.max(cat.hubX + HUB_W, ...nodes.map(t => t.x + NODE_W));
+        const top = Math.min(cat.hubY, ...nodes.map(t => t.y));
+        const bottom = Math.max(cat.hubY + HUB_H, ...nodes.map(t => t.y + getNodeHeight(t)));
+        return { cat, left, top, width: Math.max(HUB_W, right - left), height: Math.max(HUB_H, bottom - top) };
+      });
+
+      let cursorX = START_X;
+      let cursorY = START_Y;
+      let rowMaxH = 0;
+      blocks.forEach((b, idx) => {
+        if (idx > 0 && (cursorX - START_X) + b.width > MAX_ROW_W) {
+          cursorX = START_X;
+          cursorY += rowMaxH + CAT_GAP_Y + 12;
+          rowMaxH = 0;
+        }
+        map.set(b.cat.id, { dx: Math.round(cursorX - b.left), dy: Math.round(cursorY - b.top) });
+        cursorX += b.width + CAT_GAP_X;
+        if (b.height > rowMaxH) rowMaxH = b.height;
+      });
+      appState.overviewTempOffsets = map;
+      return map;
+    }
+
+    function getCatRenderOffset(catId) {
+      if (appState.overviewTempOffsets && appState.overviewTempOffsets.has(catId)) {
+        return appState.overviewTempOffsets.get(catId);
+      }
+      return { dx: 0, dy: 0 };
+    }
+
+    function getHubRenderPos(cat) {
+      const off = getCatRenderOffset(cat.id);
+      return { x: cat.hubX + off.dx, y: cat.hubY + off.dy };
+    }
+
+    function getTaskRenderPos(task) {
+      const off = getCatRenderOffset(task.categoryId);
+      return { x: task.x + off.dx, y: task.y + off.dy };
+    }
+
     function applyStageTransform() {
       const stage = document.getElementById('canvasStage');
       if (!stage) return;
@@ -4252,9 +4355,10 @@
       const tasks = getFilteredTasks();
       const cats = getVisibleCanvasCategories();
 
+      recomputeOverviewTempOffsets();
       const boxes = [];
-      cats.forEach(c => boxes.push({ x: c.hubX, y: c.hubY, w: HUB_W, h: HUB_H }));
-      tasks.forEach(t => boxes.push({ x: t.x, y: t.y, w: NODE_W, h: getNodeHeight(t) }));
+      cats.forEach(c => { const p = getHubRenderPos(c); boxes.push({ x: p.x, y: p.y, w: HUB_W, h: HUB_H }); });
+      tasks.forEach(t => { const p = getTaskRenderPos(t); boxes.push({ x: p.x, y: p.y, w: NODE_W, h: getNodeHeight(t) }); });
       if (boxes.length === 0) return;
 
       const minX = Math.min(...boxes.map(b => b.x));
@@ -4306,12 +4410,14 @@
       const visibleCats = getVisibleCanvasCategories();
       const visibleTasks = getFilteredTasks();
       visibleCats.forEach(c => {
-        if (c.hubX + 450 > maxX) maxX = c.hubX + 450;
-        if (c.hubY + 350 > maxY) maxY = c.hubY + 350;
+        const p = getHubRenderPos(c);
+        if (p.x + 450 > maxX) maxX = p.x + 450;
+        if (p.y + 350 > maxY) maxY = p.y + 350;
       });
       visibleTasks.forEach(t => {
-        if (t.x + 450 > maxX) maxX = t.x + 450;
-        if (t.y + 350 > maxY) maxY = t.y + 350;
+        const p = getTaskRenderPos(t);
+        if (p.x + 450 > maxX) maxX = p.x + 450;
+        if (p.y + 350 > maxY) maxY = p.y + 350;
       });
       stage.style.width = maxX + 'px';
       stage.style.height = maxY + 'px';
@@ -4361,7 +4467,9 @@
         if (visibleDeps.length === 0) {
           const cat = visibleCategories.find(c => c.id === task.categoryId);
           if (cat) {
-            const smart = computeSmartEdgePath(cat.hubX, cat.hubY, HUB_W, HUB_H, task.x, task.y, NODE_W, getNodeHeight(task));
+            const hp = getHubRenderPos(cat);
+            const tp = getTaskRenderPos(task);
+            const smart = computeSmartEdgePath(hp.x, hp.y, HUB_W, HUB_H, tp.x, tp.y, NODE_W, getNodeHeight(task));
             const isHubDoing = task.status === 'in_progress';
             const isHubDone = task.status === 'done';
             const strokeColor = isHubDone ? '#059669' : (isHubDoing ? '#4f46e5' : '#94a3b8');
@@ -4374,7 +4482,9 @@
             const parent = getTaskById(depId);
             if (!parent) return;
 
-            const smart = computeSmartEdgePath(parent.x, parent.y, NODE_W, getNodeHeight(parent), task.x, task.y, NODE_W, getNodeHeight(task));
+            const pp = getTaskRenderPos(parent);
+            const tp = getTaskRenderPos(task);
+            const smart = computeSmartEdgePath(pp.x, pp.y, NODE_W, getNodeHeight(parent), tp.x, tp.y, NODE_W, getNodeHeight(task));
             const d = smart.d;
 
             // 细分脉络视觉规则：只看下游节点当前状态，不要求上游先完成
@@ -4496,6 +4606,7 @@
         return;
       }
 
+      recomputeOverviewTempOffsets();
       ensureCanvasStageSize();
       const nodesContainer = document.getElementById('nodesContainer');
       const zonesContainer = document.getElementById('zonesContainer');
@@ -4512,10 +4623,12 @@
       if (!appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && visibleCategories.length >= 2) {
         visibleCategories.forEach(cat => {
           const catVisibleTasks = filteredTasks.filter(t => t.categoryId === cat.id);
-          const lefts = [cat.hubX].concat(catVisibleTasks.map(t => t.x));
-          const rights = [cat.hubX + HUB_W].concat(catVisibleTasks.map(t => t.x + NODE_W));
-          const tops = [cat.hubY].concat(catVisibleTasks.map(t => t.y));
-          const bottoms = [cat.hubY + HUB_H].concat(catVisibleTasks.map(t => t.y + getNodeHeight(t)));
+          const hp = getHubRenderPos(cat);
+          const tps = catVisibleTasks.map(t => ({ p: getTaskRenderPos(t), h: getNodeHeight(t) }));
+          const lefts = [hp.x].concat(tps.map(o => o.p.x));
+          const rights = [hp.x + HUB_W].concat(tps.map(o => o.p.x + NODE_W));
+          const tops = [hp.y].concat(tps.map(o => o.p.y));
+          const bottoms = [hp.y + HUB_H].concat(tps.map(o => o.p.y + o.h));
           const padX = 16;
           const padTop = 30;
           const padBottom = 14;
@@ -4540,11 +4653,12 @@
       visibleCategories.forEach(cat => {
         const catTasks = appState.data.tasks.filter(t => t.categoryId === cat.id);
         const doneCount = catTasks.filter(t => t.status === 'done').length;
+        const hp = getHubRenderPos(cat);
         nodesHtml += `
           <div data-hub-id="${cat.id}"
                onmousedown="startDragHub(event, '${cat.id}')"
                ontouchstart="startTouchDragHub(event, '${cat.id}')"
-               style="left: ${cat.hubX}px; top: ${cat.hubY}px; width: ${HUB_W}px; height: ${HUB_H}px;"
+               style="left: ${hp.x}px; top: ${hp.y}px; width: ${HUB_W}px; height: ${HUB_H}px;"
                class="node-card absolute rounded-xl px-3 py-2.5 bg-slate-900 text-white shadow-md border border-slate-700 flex flex-col justify-between cursor-grab z-10">
             <div class="flex items-center justify-between gap-1.5">
               <span class="font-bold text-[13px] truncate">${escapeHtml(cat.name)}</span>
@@ -4627,7 +4741,7 @@
                onmousedown="startDragNode(event, '${task.id}')"
                ontouchstart="startTouchDragNode(event, '${task.id}')"
                onclick="handleNodeClick(event, '${task.id}')"
-               style="left: ${task.x}px; top: ${task.y}px; width: ${NODE_W}px; height: ${NODE_H}px;"
+               style="left: ${getTaskRenderPos(task).x}px; top: ${getTaskRenderPos(task).y}px; width: ${NODE_W}px; height: ${NODE_H}px;"
                class="node-card node-fixed-card absolute rounded-xl bg-white border-2 ${cardBorderCls} ${isMultiSelected ? 'node-multi-selected z-20' : ''} shadow-sm cursor-grab">
             <!-- Row 1: Checkbox + 1-line Title + Detail & Quick Star (固定 20px) -->
             <div class="flex items-center justify-between gap-1 h-5 leading-5 shrink-0">
@@ -5980,8 +6094,9 @@
               task.x = snappedX;
               task.y = snappedY;
               if (appState.draggedDomEl) {
-                appState.draggedDomEl.style.left = snappedX + 'px';
-                appState.draggedDomEl.style.top = snappedY + 'px';
+                const ro = getCatRenderOffset(task.categoryId);
+                appState.draggedDomEl.style.left = (snappedX + ro.dx) + 'px';
+                appState.draggedDomEl.style.top = (snappedY + ro.dy) + 'px';
               }
             }
             autoPanWhileDragging(px, py);
@@ -5993,8 +6108,9 @@
             cat.hubX = newX;
             cat.hubY = newY;
             if (appState.draggedDomEl) {
-              appState.draggedDomEl.style.left = newX + 'px';
-              appState.draggedDomEl.style.top = newY + 'px';
+              const ro = getCatRenderOffset(cat.id);
+              appState.draggedDomEl.style.left = (newX + ro.dx) + 'px';
+              appState.draggedDomEl.style.top = (newY + ro.dy) + 'px';
             }
             autoPanWhileDragging(px, py);
             scheduleEdgesRender();
@@ -6706,13 +6822,178 @@
     // Downloads a zero-dependency Windows .bat launcher that opens lly.html / research_flow_app.html in Edge App Mode!
     
     // Fit all visible hubs and task nodes into the viewport automatically (适应视图)
+    function toggleLayoutMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('layoutModeMenu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    function hideLayoutMenu() {
+      const menu = document.getElementById('layoutModeMenu');
+      if (menu) menu.classList.add('hidden');
+    }
+
+    function saveLayoutUndoSnapshot() {
+      const catsSnap = {};
+      const tasksSnap = {};
+      (appState.data.categories || []).forEach(c => { catsSnap[c.id] = { x: c.hubX, y: c.hubY }; });
+      (appState.data.tasks || []).forEach(t => { tasksSnap[t.id] = { x: t.x, y: t.y }; });
+      _lastLayoutSnapshot = {
+        cats: catsSnap,
+        tasks: tasksSnap,
+        panX: appState.panOffsetX,
+        panY: appState.panOffsetY,
+        zoom: appState.zoom
+      };
+      const btn = document.getElementById('undoLayoutBtn');
+      if (btn) btn.classList.remove('hidden');
+    }
+
+    // 课题块紧凑拼合：把每个课题内部的四向自由排布锁成一个完整刚体，只拉近各课题块间距、消掉大片空白
+    function packCategoryBlocksTightly(showMsg = true) {
+      saveLayoutUndoSnapshot();
+      const cats = getActiveCategories();
+      if (cats.length === 0) return;
+      const CAT_GAP_X = 48;
+      const CAT_GAP_Y = 48;
+      const START_X = 60;
+      const START_Y = 60;
+      const vp = document.getElementById('canvasViewport');
+      const vpW = Math.max(960, (vp && vp.clientWidth) || 1280);
+      const MAX_ROW_W = Math.max(1120, Math.round(vpW * 1.15));
+
+      const blocks = cats.map(cat => {
+        const nodes = appState.data.tasks.filter(t => t.categoryId === cat.id);
+        const left = Math.min(cat.hubX, ...nodes.map(t => t.x));
+        const right = Math.max(cat.hubX + HUB_W, ...nodes.map(t => t.x + NODE_W));
+        const top = Math.min(cat.hubY, ...nodes.map(t => t.y));
+        const bottom = Math.max(cat.hubY + HUB_H, ...nodes.map(t => t.y + getNodeHeight(t)));
+        return { cat, nodes, left, top, width: Math.max(HUB_W, right - left), height: Math.max(HUB_H, bottom - top) };
+      });
+
+      let cursorX = START_X;
+      let cursorY = START_Y;
+      let rowMaxH = 0;
+      blocks.forEach((b, idx) => {
+        if (idx > 0 && (cursorX - START_X) + b.width > MAX_ROW_W) {
+          cursorX = START_X;
+          cursorY += rowMaxH + CAT_GAP_Y + 12;
+          rowMaxH = 0;
+        }
+        const dx = Math.round(cursorX - b.left);
+        const dy = Math.round(cursorY - b.top);
+        if (dx !== 0 || dy !== 0) {
+          b.cat.hubX += dx;
+          b.cat.hubY += dy;
+          b.nodes.forEach(t => { t.x += dx; t.y += dy; });
+        }
+        cursorX += b.width + CAT_GAP_X;
+        if (b.height > rowMaxH) rowMaxH = b.height;
+      });
+
+      saveState();
+      renderGraphCanvas();
+      centerVisibleGraphInViewport(false);
+      if (showMsg) showToast('🧲 已紧凑拼合各课题块（内部四向摆位完整保留，可点「撤销排版」还原）');
+    }
+
+    // 备选：经典从左到右层级脉络树状重排（带单课题原地锚定 + 撤销）
+    function autoLayoutTreeClassic(showMsg = true) {
+      saveLayoutUndoSnapshot();
+      const targetCategories = getVisibleCanvasCategories();
+      const isCompactOverview = !appState.viewingArchivedCatId && appState.selectedCategoryId === 'all' && targetCategories.length >= 2;
+      const singleCatAnchor = (targetCategories.length === 1 && Number.isFinite(targetCategories[0].hubX) && Number.isFinite(targetCategories[0].hubY))
+        ? { hubX: targetCategories[0].hubX, hubY: targetCategories[0].hubY } : null;
+
+      const LEVEL_GAP_X = isCompactOverview ? 288 : 304;
+      const SIBLING_GAP_Y = isCompactOverview ? 14 : 18;
+      const BRANCH_GAP_Y = isCompactOverview ? 22 : 28;
+      const HUB_GAP = isCompactOverview ? 48 : 56;
+      const CAT_GAP_Y = 48;
+      let currentCatTopY = 60;
+
+      targetCategories.forEach(cat => {
+        const catTasks = appState.data.tasks.filter(t => t.categoryId === cat.id);
+        if (catTasks.length === 0) {
+          cat.hubX = 80;
+          cat.hubY = currentCatTopY;
+          currentCatTopY += HUB_H + CAT_GAP_Y;
+          return;
+        }
+        const catSet = new Set(catTasks.map(t => t.id));
+        const sameParents = (t) => getTaskDeps(t).map(id => getTaskById(id)).filter(p => p && catSet.has(p.id));
+        const rankMap = {};
+        const rankOf = (t, vis = new Set()) => {
+          if (rankMap[t.id] !== undefined) return rankMap[t.id];
+          if (vis.has(t.id)) return 0;
+          vis.add(t.id);
+          let maxR = 0;
+          sameParents(t).forEach(p => { maxR = Math.max(maxR, rankOf(p, new Set(vis)) + 1); });
+          rankMap[t.id] = maxR;
+          return maxR;
+        };
+        catTasks.forEach(t => rankOf(t));
+        const treeChildren = new Map();
+        catTasks.forEach(t => treeChildren.set(t.id, []));
+        catTasks.forEach(t => {
+          const ps = sameParents(t);
+          if (ps.length === 0) return;
+          ps.sort((a, b) => rankMap[b.id] - rankMap[a.id]);
+          treeChildren.get(ps[0].id).push(t);
+        });
+        const roots = catTasks.filter(t => sameParents(t).length === 0);
+        const layoutSub = (node, topY) => {
+          const kids = treeChildren.get(node.id) || [];
+          const h = getNodeHeight(node);
+          if (kids.length === 0) { node.y = Math.round(topY); return { top: node.y, bottom: node.y + h }; }
+          let cy = topY, minT = Infinity, maxB = -Infinity;
+          kids.forEach(k => {
+            const box = layoutSub(k, cy);
+            minT = Math.min(minT, box.top);
+            maxB = Math.max(maxB, box.bottom);
+            cy = box.bottom + SIBLING_GAP_Y;
+          });
+          node.y = kids.length === 1 ? kids[0].y : Math.round((kids[0].y + kids[kids.length - 1].y) / 2);
+          return { top: Math.min(node.y, minT), bottom: Math.max(node.y + h, maxB) };
+        };
+        let by = currentCatTopY;
+        roots.forEach(r => { const box = layoutSub(r, by); by = box.bottom + BRANCH_GAP_Y; });
+        const baseHubX = 80;
+        catTasks.forEach(t => { t.x = baseHubX + HUB_W + HUB_GAP + (rankMap[t.id] || 0) * LEVEL_GAP_X; });
+        cat.hubX = baseHubX;
+        cat.hubY = roots.length ? Math.round((roots[0].y + roots[roots.length - 1].y) / 2 + PORT_OFFSET_Y - 38) : currentCatTopY;
+        currentCatTopY = Math.max(cat.hubY + HUB_H, ...catTasks.map(t => t.y + getNodeHeight(t))) + CAT_GAP_Y;
+      });
+
+      if (singleCatAnchor) {
+        const cat = targetCategories[0];
+        const dx = Math.round(singleCatAnchor.hubX - cat.hubX);
+        const dy = Math.round(singleCatAnchor.hubY - cat.hubY);
+        if (dx || dy) {
+          cat.hubX += dx; cat.hubY += dy;
+          appState.data.tasks.filter(t => t.categoryId === cat.id).forEach(t => { t.x += dx; t.y += dy; });
+        }
+      } else if (isCompactOverview) {
+        syncHubPositions();
+      }
+      saveState();
+      renderGraphCanvas();
+      applyStageTransform();
+      if (showMsg) showToast('🌿 已按向右层级脉络重排（可点「撤销排版」还原）');
+    }
+
+    function fitCanvasToScreen() {
+      centerVisibleGraphInViewport(true);
+      showToast(`⛶ 已缩放铺满视图 (${Math.round(appState.zoom * 100)}%)`);
+    }
+
     function resetCanvasPosition() {
       centerVisibleGraphInViewport(false);
       showToast(`⌖ 已回到视图起点 (${Math.round(appState.zoom * 100)}%)`);
     }
 
     function fitCanvasView() {
-      resetCanvasPosition();
+      fitCanvasToScreen();
     }
 
     // Double-click blank canvas: open task modal anchored at exact canvas point (supports negative coords & avoids orphan nodes on cancel)
@@ -8144,29 +8425,217 @@
       }, GH_DEBOUNCE_MS);
     }
 
-    function promptGitHubConflict(remoteData, remoteSha) {
+    const GH_SYNC_BASE_KEY = 'lly_github_sync_base_v1';
+
+    function loadGhSyncBase() {
+      try {
+        const raw = localStorage.getItem(GH_SYNC_BASE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.data || !parsed.fp) return null;
+        return parsed;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveGhSyncBase(data, sha) {
+      if (!data) return;
+      try {
+        localStorage.setItem(GH_SYNC_BASE_KEY, JSON.stringify({
+          fp: buildSemanticFingerprint(data),
+          sha: sha || '',
+          savedAt: new Date().toISOString(),
+          data: JSON.parse(JSON.stringify(data))
+        }));
+      } catch (e) {}
+    }
+
+    // 三方智能合并（Base + Local + Remote）：按条目 ID 精确合并，保留电脑画布坐标与手机更新，绝不整包误盖
+    function mergeThreeWayWorkspace(baseData, localData, remoteData) {
+      const base = baseData || { categories: [], tasks: [], trash: [], countdowns: [], memos: [], edgeLabels: {} };
+      const local = localData || { categories: [], tasks: [], trash: [], countdowns: [], memos: [], edgeLabels: {} };
+      const remote = remoteData || { categories: [], tasks: [], trash: [], countdowns: [], memos: [], edgeLabels: {} };
+      const remoteNewer = String(remote.updatedAt || '') > String(local.updatedAt || '');
+      const conflicts = [];
+
+      const jsonEq = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+
+      function mergeItemFields(bItem, lItem, rItem, semanticFields, coordFields, labelName) {
+        const out = JSON.parse(JSON.stringify(lItem));
+        semanticFields.forEach(f => {
+          const bv = bItem ? bItem[f] : undefined;
+          const lv = lItem[f];
+          const rv = rItem[f];
+          if (jsonEq(lv, rv)) {
+            out[f] = lv;
+          } else if (bItem && jsonEq(lv, bv)) {
+            out[f] = rv; // 仅云端改了该字段
+          } else if (bItem && jsonEq(rv, bv)) {
+            out[f] = lv; // 仅本机改了该字段
+          } else {
+            // 两边改了同一个字段：默认取较新端，同时记入冲突清单
+            out[f] = remoteNewer ? rv : lv;
+            conflicts.push(`${labelName}（${f}）`);
+          }
+        });
+        // 画布坐标优先保留电脑端（本机）摆位；仅当本机未动坐标且云端动了时才采用云端坐标
+        coordFields.forEach(f => {
+          const bv = bItem ? bItem[f] : undefined;
+          const lv = lItem[f];
+          const rv = rItem[f];
+          if (bItem && jsonEq(lv, bv) && !jsonEq(rv, bv)) out[f] = rv;
+          else out[f] = lv;
+        });
+        return out;
+      }
+
+      function mergeCollection(bArr, lArr, rArr, semanticFields, coordFields, kindLabel) {
+        const bMap = new Map((bArr || []).map(x => [x.id, x]));
+        const lMap = new Map((lArr || []).map(x => [x.id, x]));
+        const rMap = new Map((rArr || []).map(x => [x.id, x]));
+        const orderedIds = [];
+        const seen = new Set();
+        [lArr || [], rArr || []].forEach(arr => arr.forEach(x => {
+          if (x && x.id && !seen.has(x.id)) { seen.add(x.id); orderedIds.push(x.id); }
+        }));
+
+        const merged = [];
+        orderedIds.forEach(id => {
+          const b = bMap.get(id);
+          const l = lMap.get(id);
+          const r = rMap.get(id);
+          if (l && r) {
+            merged.push(mergeItemFields(b, l, r, semanticFields, coordFields, `${kindLabel}:${l.title || l.name || id}`));
+          } else if (l && !r) {
+            // 若原本在 base 里、云端删掉了，且本机没改过它 → 尊重云端删除；否则保留本机新增/修改
+            if (b && semanticFields.every(f => jsonEq(l[f], b[f]))) return;
+            merged.push(JSON.parse(JSON.stringify(l)));
+          } else if (!l && r) {
+            if (b && semanticFields.every(f => jsonEq(r[f], b[f]))) return;
+            merged.push(JSON.parse(JSON.stringify(r)));
+          }
+        });
+        return merged;
+      }
+
+      const mergedCats = mergeCollection(
+        base.categories, local.categories, remote.categories,
+        ['name', 'target', 'color', 'order', 'archived', 'archivedAt'],
+        ['hubX', 'hubY'],
+        '课题'
+      );
+      const mergedTasks = mergeCollection(
+        base.tasks, local.tasks, remote.tasks,
+        ['categoryId', 'title', 'stage', 'parentId', 'deps', 'status', 'isRecent', 'dueDate', 'notes', 'subtasks'],
+        ['x', 'y'],
+        '卡片'
+      );
+      const mergedCountdowns = mergeCollection(
+        base.countdowns, local.countdowns, remote.countdowns,
+        ['title', 'date', 'color', 'note', 'pinned'],
+        [],
+        '倒计日'
+      );
+      const mergedMemos = mergeCollection(
+        base.memos, local.memos, remote.memos,
+        ['text', 'color', 'pinned'],
+        [],
+        '便签'
+      );
+
+      // 回收站取并集，排除当前已恢复到活跃 tasks 里的 ID
+      const aliveTaskIds = new Set(mergedTasks.map(t => t.id));
+      const trashMap = new Map();
+      (remote.trash || []).concat(local.trash || []).forEach(tr => {
+        if (tr && tr.id && !aliveTaskIds.has(tr.id)) trashMap.set(tr.id, JSON.parse(JSON.stringify(tr)));
+      });
+
+      // 连线标注 3-way 合并
+      const bEl = base.edgeLabels || {};
+      const lEl = local.edgeLabels || {};
+      const rEl = remote.edgeLabels || {};
+      const mergedEdgeLabels = {};
+      const elKeys = new Set([...Object.keys(bEl), ...Object.keys(lEl), ...Object.keys(rEl)]);
+      elKeys.forEach(k => {
+        const bv = bEl[k] || '';
+        const lv = lEl[k] || '';
+        const rv = rEl[k] || '';
+        let val = lv;
+        if (lv === rv) val = lv;
+        else if (lv === bv) val = rv;
+        else if (rv === bv) val = lv;
+        else val = remoteNewer ? rv : lv;
+        if (val) mergedEdgeLabels[k] = val;
+      });
+
+      const merged = normalizeLoaded({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        updatedAt: new Date().toISOString(),
+        meta: Object.assign({}, remote.meta || {}, local.meta || {}),
+        categories: mergedCats.length ? mergedCats : (local.categories || remote.categories || []),
+        tasks: mergedTasks,
+        trash: Array.from(trashMap.values()),
+        countdowns: mergedCountdowns,
+        memos: mergedMemos,
+        edgeLabels: mergedEdgeLabels
+      });
+
+      return { data: merged, conflicts };
+    }
+
+    async function applyAdoptedRemote(remoteData, remoteSha, toastMsg) {
+      appState.data = remoteData;
+      appState.ghLastSha = remoteSha;
+      appState.ghDirty = false;
+      appState.ghLastError = '';
+      appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
+      if (!getTaskById(appState.selectedTaskId)) {
+        const active = getActiveTasks();
+        appState.selectedTaskId = active.length ? active[0].id : null;
+      }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+      saveGhSyncBase(appState.data, remoteSha);
+      if (appState.dataDir) scheduleDirWrite();
+      renderAll();
+      updateDirUI();
+      updateSyncButtonsUI();
+      if (toastMsg) showToast(toastMsg);
+    }
+
+    function promptGitHubConflict(remoteData, remoteSha, precomputedMerge = null) {
+      const base = loadGhSyncBase();
+      const mergeRes = precomputedMerge || mergeThreeWayWorkspace(base ? base.data : null, appState.data, remoteData);
       const remoteAt = remoteData.updatedAt ? String(remoteData.updatedAt).slice(0, 19).replace('T', ' ') : '未知时间';
       const localAt = appState.data.updatedAt ? String(appState.data.updatedAt).slice(0, 19).replace('T', ' ') : '未知时间';
+      const conflictHint = mergeRes.conflicts && mergeRes.conflicts.length > 0
+        ? `\n同一处发生双向修改（${mergeRes.conflicts.slice(0, 3).join('、')}${mergeRes.conflicts.length > 3 ? ' 等' : ''}）。`
+        : '';
       openConfirmModal(
-        '☁️ GitHub 云端与本机数据有差异',
-        `云端（${remoteData.tasks.length} 条记录，更新于 ${remoteAt}）与本机（${appState.data.tasks.length} 条记录，更新于 ${localAt}）内容不同。\n\n`
-          + '「用云端替换本机」= 拉取云端最新数据；\n'
-          + '「用本机覆盖云端」= 将当前页面推送到 GitHub。',
+        '☁️ 两端均有改动，请选择同步方式',
+        `云端（${remoteData.tasks.length} 张卡片、${(remoteData.memos || []).length} 条便签，更新于 ${remoteAt}）与本机（${appState.data.tasks.length} 张卡片、${(appState.data.memos || []).length} 条便签，更新于 ${localAt}）均有改动。${conflictHint}\n\n`
+          + '「✨ 智能合并两端」（推荐）= 保留两边新增的卡片/便签/倒计日，并保留本机画布坐标；\n'
+          + '「用云端替换本机」= 放弃本机差异，完全采用云端；\n'
+          + '「用本机覆盖云端」= 强制用本机覆盖 GitHub。',
         async () => {
           await savePreCloudSnapshot('云端替换前');
-          appState.data = remoteData;
-          appState.ghLastSha = remoteSha;
-          appState.ghDirty = false;
-          appState.ghLastError = '';
-          appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
-          if (appState.dataDir) flushDirWrite();
-          renderAll();
-          updateSyncButtonsUI();
-          showToast('☁️ 已采用 GitHub 云端数据');
+          await applyAdoptedRemote(remoteData, remoteSha, '☁️ 已采用 GitHub 云端数据');
         },
         {
           confirmLabel: '用云端替换本机',
+          merge: mergeRes && mergeRes.data ? {
+            label: '✨ 智能合并两端',
+            action: async () => {
+              await savePreCloudSnapshot('智能合并前');
+              appState.data = mergeRes.data;
+              appState.ghLastSha = remoteSha;
+              try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+              if (appState.dataDir) scheduleDirWrite();
+              renderAll();
+              await pushToGitHub(true, false);
+              showToast('✨ 已智能合并两端改动并同步到 GitHub');
+            }
+          } : null,
           extra: {
             label: '用本机覆盖云端',
             action: () => {
@@ -8190,7 +8659,7 @@
         if (res.notFound) {
           appState.ghLastSha = '';
           appState.ghSyncing = false;
-          if ((appState.data.tasks || []).length > 0) {
+          if (hasWorkspaceContent(appState.data)) {
             return await pushToGitHub(true, silent);
           }
           appState.ghDirty = false;
@@ -8204,40 +8673,64 @@
         appState.ghLastSha = res.sha;
 
         const localHasData = hasWorkspaceContent(appState.data);
-        const sameContent = buildSemanticFingerprint(remote) === buildSemanticFingerprint(appState.data);
-        if (sameContent) {
+        const localFp = buildSemanticFingerprint(appState.data);
+        const remoteFp = buildSemanticFingerprint(remote);
+        const base = loadGhSyncBase();
+        const baseFp = base ? base.fp : '';
+
+        // 1) 内容完全一致 → 直接更新基准，零弹窗
+        if (localFp === remoteFp) {
           appState.ghDirty = false;
           appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
           appState.ghSyncing = false;
+          saveGhSyncBase(appState.data, res.sha);
           updateSyncButtonsUI();
           if (!silent) showToast('☁️ 已是最新，无需覆盖');
           return 'synced';
         }
 
-        const remoteAt = remote.updatedAt || '';
-        const localAt = appState.data.updatedAt || '';
-        if (!localHasData || (remoteAt && localAt && remoteAt > localAt)) {
-          if (localHasData) await savePreCloudSnapshot('云端自动同步前');
-          appState.data = remote;
-          if (!getTaskById(appState.selectedTaskId)) {
-            const active = getActiveTasks();
-            appState.selectedTaskId = active.length ? active[0].id : null;
-          }
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
-          if (appState.dataDir) scheduleDirWrite();
-          appState.ghDirty = false;
-          appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
+        // 2) 本机空白，或本机自上次同步以来没改过（localFp === baseFp）→ 纯粹是手机/另一端往前走了一步，静默无感拉取！
+        if (!localHasData || (baseFp && localFp === baseFp && remoteFp !== baseFp)) {
+          if (localHasData) await savePreCloudSnapshot('云端无感拉取前');
           appState.ghSyncing = false;
-          renderAll();
-          updateDirUI();
-          updateSyncButtonsUI();
-          showToast('☁️ 已从 GitHub 拉取最新记录');
+          await applyAdoptedRemote(remote, res.sha, '☁️ 检测到另一端有更新，已自动拉取同步');
           return 'adopted';
         }
 
-        if (localAt && remoteAt && localAt > remoteAt) {
+        // 3) 云端自上次同步以来没改过（remoteFp === baseFp），仅本机改了 → 静默推送！
+        if (baseFp && remoteFp === baseFp && localFp !== baseFp) {
           appState.ghSyncing = false;
           return await pushToGitHub(false, silent);
+        }
+
+        // 4) 两边相对基准都有改动 → 先尝试三方自动合并（无同字段冲突直接静默合并并回推！）
+        if (base && base.data) {
+          const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
+          if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
+            await savePreCloudSnapshot('自动合并前');
+            appState.data = mergeRes.data;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+            if (appState.dataDir) scheduleDirWrite();
+            appState.ghSyncing = false;
+            renderAll();
+            await pushToGitHub(true, true);
+            showToast('✨ 已自动合并两端改动（保留本机画布与另一端更新）');
+            return 'merged';
+          }
+          appState.ghSyncing = false;
+          updateSyncButtonsUI();
+          promptGitHubConflict(remote, res.sha, mergeRes);
+          return 'conflict';
+        }
+
+        // 5) 首次尚未建立基准时的时间兜底
+        const remoteAt = remote.updatedAt || '';
+        const localAt = appState.data.updatedAt || '';
+        if (remoteAt && localAt && remoteAt > localAt && !appState.ghDirty) {
+          await savePreCloudSnapshot('云端自动同步前');
+          appState.ghSyncing = false;
+          await applyAdoptedRemote(remote, res.sha, '☁️ 已从 GitHub 拉取最新记录');
+          return 'adopted';
         }
 
         appState.ghSyncing = false;
@@ -8272,9 +8765,26 @@
             if (!forceOverwrite && probe.parsed) {
               const remote = normalizeLoaded(probe.parsed);
               if (remote && buildSemanticFingerprint(remote) !== buildSemanticFingerprint(appState.data)) {
-                const remoteAt = remote.updatedAt || '';
-                const localAt = appState.data.updatedAt || '';
-                if (remoteAt && localAt && remoteAt > localAt) {
+                const base = loadGhSyncBase();
+                const localFp = buildSemanticFingerprint(appState.data);
+                const remoteFp = buildSemanticFingerprint(remote);
+                if (base && localFp === base.fp) {
+                  appState.ghSyncing = false;
+                  await applyAdoptedRemote(remote, probe.sha, '☁️ 已自动拉取另一端最新改动');
+                  return 'adopted';
+                }
+                if (base && base.data && remoteFp !== base.fp) {
+                  const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
+                  if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
+                    appState.data = mergeRes.data;
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+                    renderAll();
+                  } else {
+                    appState.ghSyncing = false;
+                    promptGitHubConflict(remote, probe.sha, mergeRes);
+                    return 'conflict';
+                  }
+                } else if (!base && String(remote.updatedAt || '') > String(appState.data.updatedAt || '')) {
                   appState.ghSyncing = false;
                   promptGitHubConflict(remote, probe.sha);
                   return 'conflict';
@@ -8291,15 +8801,40 @@
           appState.ghSyncing = false;
           if (!latest.notFound && latest.parsed) {
             const remote = normalizeLoaded(latest.parsed);
-            if (remote && buildSemanticFingerprint(remote) === buildSemanticFingerprint(appState.data)) {
-              appState.ghLastSha = latest.sha;
-              appState.ghDirty = (appState.ghEditSeq || 0) !== pushedSeq;
-              appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
-              updateSyncButtonsUI();
-              if (appState.ghDirty) scheduleGhSync();
-              return 'synced';
-            }
             if (remote) {
+              const localFp = buildSemanticFingerprint(appState.data);
+              const remoteFp = buildSemanticFingerprint(remote);
+              const base = loadGhSyncBase();
+              if (localFp === remoteFp) {
+                appState.ghLastSha = latest.sha;
+                appState.ghDirty = (appState.ghEditSeq || 0) !== pushedSeq;
+                appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
+                saveGhSyncBase(appState.data, latest.sha);
+                updateSyncButtonsUI();
+                if (appState.ghDirty) scheduleGhSync();
+                return 'synced';
+              }
+              // 409 冲突时优先尝试三方无损自动合并！
+              if (base && base.data) {
+                if (localFp === base.fp) {
+                  await applyAdoptedRemote(remote, latest.sha, '☁️ 检测到另一端有更新，已自动拉取');
+                  return 'adopted';
+                }
+                const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
+                if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
+                  await savePreCloudSnapshot('自动合并前');
+                  appState.data = mergeRes.data;
+                  appState.ghLastSha = latest.sha;
+                  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
+                  if (appState.dataDir) scheduleDirWrite();
+                  renderAll();
+                  await pushToGitHub(true, true);
+                  showToast('✨ 已自动合并两端改动并同步到 GitHub');
+                  return 'merged';
+                }
+                promptGitHubConflict(remote, latest.sha, mergeRes);
+                return 'conflict';
+              }
               promptGitHubConflict(remote, latest.sha);
               return 'conflict';
             }
@@ -8311,6 +8846,7 @@
         appState.ghLastSha = putRes.sha;
         appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
         appState.ghSyncing = false;
+        saveGhSyncBase(appState.data, putRes.sha);
         // 版本号校验：若推送飞在网上的期间你又拖动或改了内容，保持待同步并自动补推，绝不丢同步
         if ((appState.ghEditSeq || 0) === pushedSeq) {
           appState.ghDirty = false;
@@ -8941,9 +9477,21 @@
       }
     }
 
+    let _lastVisibilityPullAt = 0;
+    function checkCloudUpdateOnReturn() {
+      const now = Date.now();
+      if (now - _lastVisibilityPullAt < 20000) return;
+      _lastVisibilityPullAt = now;
+      if (isGitHubSyncEnabled() && !appState.ghSyncing) {
+        pullFromGitHub(true);
+      }
+    }
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushPendingEditsBeforeLeave();
+      else if (document.visibilityState === 'visible') checkCloudUpdateOnReturn();
     });
+    window.addEventListener('focus', checkCloudUpdateOnReturn);
     window.addEventListener('pagehide', flushPendingEditsBeforeLeave);
     window.addEventListener('beforeunload', (e) => {
       const hasPending = Boolean(_liveFieldTimer || (appState.dataDir && dirWriteTimer) || (isGitHubSyncEnabled() && appState.ghDirty));
@@ -8979,6 +9527,8 @@
         const pop = document.getElementById('stageQuickPopover');
         if (!pop || !e.target || !pop.contains(e.target)) hideStageQuickMenu();
       }
+      const lmWrap = document.getElementById('layoutMenuWrap');
+      if (lmWrap && e.target && !lmWrap.contains(e.target)) hideLayoutMenu();
     }, true);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && appState.ctxMenuOpen) hideContextMenu();
