@@ -80,8 +80,9 @@
     .node-card:hover {
       box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.12), 0 4px 8px -3px rgba(15, 23, 42, 0.06);
     }
+    /* 选中态：深墨色外轮廓光晕（不覆盖卡片自身状态色，彻底区分于「进行中」的靛蓝态） */
     .node-selected {
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.24), 0 14px 28px -8px rgba(79, 70, 229, 0.18);
+      box-shadow: 0 0 0 2.5px #0f172a, 0 14px 26px -8px rgba(15, 23, 42, 0.26) !important;
     }
     .btn-primary {
       background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
@@ -516,8 +517,10 @@
       stroke-width: 18px;
       fill: none;
     }
+    /* 进行中态：柔和靛蓝底色 + 靛蓝边框，一眼识别正在推进的工作 */
     .node-in-progress {
-      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18), 0 8px 18px -6px rgba(79, 70, 229, 0.14);
+      background-color: #f5f7ff !important;
+      box-shadow: 0 6px 16px -6px rgba(79, 70, 229, 0.2);
     }
     .node-fixed-card {
       height: 92px !important;
@@ -1438,48 +1441,49 @@
       </div>
       <div class="p-5 overflow-y-auto flex-1 space-y-4 text-[13px] text-slate-700 leading-relaxed">
         <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/70 space-y-1.5">
-          <div class="font-bold text-indigo-900 text-[13.5px]">🧭 1. 脉络导图操作</div>
+          <div class="font-bold text-indigo-900 text-[13.5px]">🧭 1. 四向白板与脉络导图</div>
           <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
-            <li><strong>新建与细分</strong>：双击画布空白处新建卡片；按住卡片右侧的<strong>靛蓝圆点</strong>拖向另一张卡片建立连线，或拖到空白处松手直接新建下游细分卡片。</li>
-            <li><strong>快捷编辑</strong>：双击卡片标题原地改名；点击卡片里的「待办 / 进行 / 完成」或「+ 标签」一键切换；点右上角 ✎ 展开侧栏写备注和子步骤；右键任意卡片、连线或课题有快捷菜单。</li>
-            <li><strong>总览层级</strong>：在「全部主题」下可通过工具栏 <strong>总览：2级 | 3级 | 全部</strong> 折叠过深的细枝，点击卡片右侧的 <strong>+N</strong> 徽章可直接进入该课题查看全貌。</li>
-            <li><strong>四向白板与整理</strong>：鼠标悬停卡片时四周浮现连接圆点，上下左右皆可拉线或拖到空白处新建卡片，连线自动走就近边；按住 <strong>Shift + 拖框</strong> 可多选批量移动，总览下拖课题虚线框标题可整组平移；点「就近对齐整理」只原地对齐同行同列并解重叠，不打乱自由布局（可撤销）。</li><li><strong>连线标注与纯便签</strong>：点击/右键连线可加简短文字说明；右侧「记一笔」默认存为暖黄色纯便签（置顶显示且汇总在顶部「📝 便签」墙），不混入待办统计，随时可一键转为正式卡片。</li>
+            <li><strong>四向拉线与新建</strong>：鼠标移到深色主题卡片或任务卡片时，<strong>上 / 下 / 左 / 右</strong>四边会浮现圆点；按住任意圆点拖向另一卡片即可连线，拖到空白处松手可直接在落点新建卡片，连线自动走最近的对向边。</li>
+            <li><strong>批量拖动与整组平移</strong>：按住 <strong>Shift + 拖框</strong>（或 Shift 点选）可框选多张卡片批量移动；在「全部主题总览」里，按住某个课题虚线框左上角的标题标签拖动，可带着整组卡片一起平移。</li>
+            <li><strong>三合一整理菜单（就近对齐 ▾）</strong>：默认点「<strong>就近对齐</strong>」保留你的四向摆位，只微调齐平与解重叠；点右侧 <strong>▾</strong> 还可选「<strong>🧲 课题块紧凑拼合</strong>」（锁住各课题内部摆位拉近间距）或「<strong>🌿 向右树状重排</strong>」，均支持「<strong>↩ 撤销排版</strong>」。单卡拖动时带极轻的 4px 参考线（按住 <strong>Alt</strong> 临时关闭）。</li>
+            <li><strong>视野与分层总览</strong>：滚轮上下平移、<strong>Ctrl + 滚轮</strong>缩放；工具栏提供「<strong>⛶ 铺满</strong>」（缩放铺满当前窗口）与「<strong>⌖ 起点</strong>」；总览下切换 <strong>2级 | 3级 | 全部</strong> 时会自动无损收紧/拉开课题间距，不改写原坐标。</li>
+            <li><strong>快捷编辑与连线标注</strong>：双击卡片标题原地改名；点击或右键任意连线可添加<strong>简短文字标注</strong>（如「失败转方案」「支撑机理」），不填则保持空白。</li>
           </ul>
         </div>
 
-        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-          <div class="font-bold text-slate-800 text-[13.5px]">🎨 2. 连线与日期颜色说明</div>
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+          <div class="font-bold text-slate-800 text-[13.5px]">🎨 2. 卡片状态、连线与日期说明</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[12.5px]">
             <div class="space-y-1">
-              <div class="font-semibold text-slate-600">连线状态（跟随下游卡片）</div>
-              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-indigo-600"></span><span><strong>靛蓝流动线</strong>：下游任务正在「进行中」</span></div>
-              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-emerald-600"></span><span><strong>森林绿实线</strong>：下游任务「已完成」</span></div>
-              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-slate-400"></span><span><strong>冷灰实线</strong>：下游任务处于「待办」</span></div>
+              <div class="font-semibold text-slate-600">卡片外观区分</div>
+              <div><span class="inline-block px-1.5 py-0.2 rounded border-2 border-slate-900 bg-white text-slate-800 font-semibold text-[11px]">深墨色外框</span> = 当前选中卡片（保留原状态色）</div>
+              <div><span class="inline-block px-1.5 py-0.2 rounded border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold text-[11px]">▶ 靛蓝底框</span> = 正在「进行中」</div>
+              <div><span class="inline-block px-1.5 py-0.2 rounded border border-emerald-300 bg-emerald-50 text-slate-400 font-semibold text-[11px]">柔和浅绿字</span> = 「已完成」（浅色清爽无删除线）</div>
             </div>
             <div class="space-y-1">
-              <div class="font-semibold text-slate-600">卡片右下角日期（二选一）</div>
+              <div class="font-semibold text-slate-600">连线颜色 & 卡片右下角日期</div>
+              <div class="flex items-center gap-2"><span class="inline-block w-5 h-0.5 bg-indigo-600"></span><span><strong>靛蓝流动线</strong>：进行中 · <strong class="text-emerald-700">森林绿</strong>：已完成 · <strong class="text-slate-500">冷灰</strong>：待办</span></div>
               <div><span class="text-slate-400 font-mono">26.11.20</span> 淡灰无底色 = 创建日期</div>
-              <div><span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-semibold font-mono">26.11.19</span> 红底 = 已逾期截止日</div>
-              <div><span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold font-mono">26.11.23</span> 橙底 = 今明到期 · <span class="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 font-mono">蓝底</span> 7天内 · <span class="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-mono">天蓝底</span> 7天后</div>
+              <div><span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-semibold font-mono">红底</span> 逾期 · <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold font-mono">橙底</span> 今明 · <span class="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 font-mono">蓝底</span> 7天内 · <span class="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-mono">天蓝</span> 7天后</div>
             </div>
           </div>
         </div>
 
         <div class="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200/70 space-y-1.5">
-          <div class="font-bold text-emerald-900 text-[13.5px]">📋 3. 近期看板 · 🍅 番茄钟 · 📅 倒计日</div>
+          <div class="font-bold text-emerald-900 text-[13.5px]">📋 3. 近期看板 · 📝 纯便签 · 🍅 番茄钟 · 📅 倒计日</div>
           <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
-            <li><strong>四象限看板</strong>：导图不锁死前后置，看板按 <strong>重点攻坚 / 正在推进 / 常规待办 / 已完成</strong> 分类；点左上角统计数字可单框聚焦查看。</li>
-            <li><strong>🍅 番茄钟</strong>：独立专注页，切回导图或看板时会在后台继续计时，浏览器标签页同步显示剩余时间，到点自动响柔和铃声。</li>
-            <li><strong>📅 倒计日</strong>：独立记录截稿、答辩、组会等大节点，<strong>自动随本地文件夹和 GitHub 同步到手机端</strong>。</li>
+            <li><strong>四象限看板</strong>：按 <strong>重点攻坚 / 正在推进 / 常规待办 / 已完成</strong> 展示，点左上角统计数字可单框聚焦。</li>
+            <li><strong>📝 纯便签墙与「记一笔」</strong>：右侧看板的「<strong>记一笔</strong>」默认存为暖黄色纯便签（置顶露出最新 3 条，不混入待办统计），完整列表在顶部「<strong>📝 便签</strong>」页，支持换色、置顶、原地编辑及一键「<strong>↗ 转为正式卡片</strong>」。</li>
+            <li><strong>🍅 番茄钟 & 📅 倒计日</strong>：番茄钟切页后后台持续计时并显示在标签页标题；倒计日与便签均自动同步至手机端。</li>
           </ul>
         </div>
 
         <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-          <div class="font-bold text-amber-900 text-[13.5px]">☁️ 4. 数据安全、归档与双端同步</div>
+          <div class="font-bold text-amber-900 text-[13.5px]">☁️ 4. 无感双端同步、智能合并与 7 天备份</div>
           <ul class="space-y-1 text-[12.5px] text-slate-700 pl-4" style="list-style: disc;">
-            <li><strong>自动防抖保存</strong>：所有改动秒存浏览器缓存，停手 <strong>15 秒</strong>后自动合并写入本地文件夹并推送 GitHub；随时可点右上角同步按钮或按 <strong>Ctrl + S</strong> 立即同步。</li>
-            <li><strong>数据与同步中心</strong>：点右上角 <strong>⚙ 数据</strong> 可管理本地数据文件夹、配置 GitHub 同步口令、导出/导入备份及生成 Edge 桌面启动器。</li>
-            <li><strong>归档与回收站</strong>：结题或暂不做的课题可整课题 <strong>📦 归档</strong>（随时可在画布回头查看或恢复）；误删卡片可在 <strong>🗑 回收站</strong> 无损还原上下游连线。</li>
+            <li><strong>无感拉取 + 三方智能合并</strong>：一端有改动而另一端未改时，切回窗口或点同步会<strong>静默拉取不弹窗</strong>；两端改了不同卡片/便签或电脑拖了坐标、手机改了状态时会自动合并，真冲突时提供「<strong>✨ 智能合并两端</strong>」。</li>
+            <li><strong>自动保存与 7 天备份</strong>：停手 <strong>15 秒</strong>后自动写入本地文件夹并同步 GitHub（同时自动留存本地与云端近 7 天每日备份），随时可按 <strong>Ctrl + S</strong> 立即同步。</li>
+            <li><strong>数据中心、归档与回收站</strong>：点右上角 <strong>⚙ 数据</strong> 管理本地文件夹、GitHub 配置口令与 Edge 启动器；结题课题可整课题 <strong>📦 归档</strong>，误删卡片可在 <strong>🗑 回收站</strong> 无损还原连线。</li>
           </ul>
         </div>
       </div>
@@ -4713,15 +4717,14 @@
           : '';
 
         const hiddenDescCount = trimmedOverview ? countHiddenDescendantsInOverview(task.id, visibleTaskIds) : 0;
+        const statusCls = task.status === 'done'
+          ? 'border-emerald-300 bg-emerald-50/35 opacity-90'
+          : (task.status === 'in_progress'
+              ? 'border-indigo-500 node-in-progress'
+              : palette.border);
         const cardBorderCls = isSnapTarget
           ? 'node-snap-target z-30'
-          : (isSelected
-              ? 'border-indigo-600 node-selected z-20'
-              : (task.status === 'done'
-                  ? 'border-emerald-400 bg-emerald-50/20 opacity-90 z-10'
-                  : (task.status === 'in_progress'
-                      ? 'border-indigo-500 node-in-progress z-10'
-                      : palette.border + ' z-10')));
+          : `${statusCls} ${isSelected ? 'node-selected z-20' : 'z-10'}`;
 
         const isInlineEditing = appState.inlineEditingTaskId === task.id;
         const titleContentHtml = isInlineEditing
@@ -4731,7 +4734,7 @@
                onblur="commitInlineTitleEdit('${task.id}', this.value)"
                class="w-full text-[12.5px] font-bold text-slate-900 bg-indigo-50/70 border border-indigo-400 rounded px-1.5 py-0 focus:outline-none focus:ring-1 focus:ring-indigo-500 h-5 leading-5" />`
           : `<div ondblclick="event.stopPropagation(); startInlineTitleEdit('${task.id}')"
-               class="font-bold text-[13px] text-slate-900 truncate ${task.status === 'done' ? 'line-through text-slate-400' : ''}"
+               class="font-bold text-[13px] truncate ${task.status === 'done' ? 'text-slate-400 font-semibold' : 'text-slate-900'}"
                title="${escapeAttr(task.title)}（双击标题可直接改名）">
                ${task.status === 'in_progress' ? '<span class="text-indigo-600 mr-0.5" title="进行中">▶</span>' : ''}${escapeHtml(task.title)}
              </div>`;
@@ -4874,7 +4877,7 @@
               <input type="checkbox" ${isDone ? 'checked' : ''}
                 onclick="event.stopPropagation(); toggleTaskComplete('${task.id}')"
                 class="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
-              <span class="text-[12.5px] font-semibold text-slate-800 truncate ${isDone ? 'line-through text-slate-400' : ''}">
+              <span class="text-[12.5px] font-semibold truncate ${isDone ? 'text-slate-400' : 'text-slate-800'}">
                 ${task.isRecent && !isDone ? '<span class="text-amber-500 mr-0.5">🔥</span>' : ''}${escapeHtml(task.title)}
               </span>
             </div>
@@ -5155,7 +5158,7 @@
               class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1">
-                <span class="text-[13px] font-semibold text-slate-800 truncate ${isDone ? 'line-through text-slate-400' : ''}" title="${escapeAttr(task.title)}">
+                <span class="text-[13px] font-semibold truncate ${isDone ? 'text-slate-400' : 'text-slate-800'}" title="${escapeAttr(task.title)}">
                   ${task.isRecent && !isDone ? '<span class="text-amber-500">🔥</span>' : ''}${escapeHtml(task.title)}
                 </span>
               </div>
@@ -5169,7 +5172,7 @@
                   ${task.subtasks.slice(0, 4).map(st => `
                     <label onclick="event.stopPropagation()" class="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer hover:text-slate-900 bg-slate-50 border border-slate-100 rounded-md px-1.5 py-0.5 max-w-[150px]">
                       <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleSubtask('${task.id}', '${st.id}')" class="rounded text-indigo-600 w-2.5 h-2.5" />
-                      <span class="${st.done ? 'line-through text-slate-400' : ''} truncate">${escapeHtml(st.text)}</span>
+                      <span class="${st.done ? 'text-slate-400' : ''} truncate">${escapeHtml(st.text)}</span>
                     </label>
                   `).join('')}
                   ${pendingSubs > 0 ? `<span class="text-[10.5px] text-slate-400">+${pendingSubs} 项待办</span>` : ''}
@@ -5299,7 +5302,7 @@
                     class="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
                   <input type="text" value="${escapeAttr(st.text)}"
                     oninput="updateSubtaskTextLive('${task.id}', '${st.id}', this.value)"
-                    class="flex-1 bg-transparent border-none p-0 text-[13px] focus:outline-none focus:ring-0 ${st.done ? 'line-through text-slate-400' : 'text-slate-700'}" />
+                    class="flex-1 bg-transparent border-none p-0 text-[13px] focus:outline-none focus:ring-0 ${st.done ? 'text-slate-400' : 'text-slate-700'}" />
                   <button type="button" onclick="removeSubtask('${task.id}', '${st.id}')" class="text-slate-300 hover:text-rose-500 text-[13px] px-1 shrink-0">✕</button>
                 </div>
               `).join('')}
@@ -5334,7 +5337,7 @@
                       <label class="flex items-center justify-between gap-2 text-[13px] p-1 rounded hover:bg-slate-50 cursor-pointer">
                         <span class="flex items-center gap-1.5 truncate">
                           <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleTaskDep('${task.id}', '${cand.id}')" class="rounded text-indigo-600" />
-                          <span class="${cand.status === 'done' ? 'line-through text-slate-400' : 'text-slate-700 font-medium'} truncate">${escapeHtml(cand.title)}</span>
+                          <span class="${cand.status === 'done' ? 'text-slate-400' : 'text-slate-700 font-medium'} truncate">${escapeHtml(cand.title)}</span>
                         </span>
                         <span class="text-[12px] px-1.5 py-0.5 rounded ${cand.status === 'done' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} shrink-0">
                           ${cand.status === 'done' ? '已完' : '未完'}
@@ -5838,9 +5841,9 @@
         appState.selectedTaskId = taskId;
         document.querySelectorAll('[data-node-id]').forEach(nodeEl => {
           if (nodeEl.getAttribute('data-node-id') === taskId) {
-            nodeEl.classList.add('border-indigo-600', 'node-selected', 'z-20');
+            nodeEl.classList.add('node-selected', 'z-20');
           } else {
-            nodeEl.classList.remove('border-indigo-600', 'node-selected', 'z-20');
+            nodeEl.classList.remove('node-selected', 'z-20');
           }
         });
         renderRecentTasksList();
