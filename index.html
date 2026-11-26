@@ -641,8 +641,22 @@
     /* ===== 侧栏分类拖拽排序 ===== */
     .cat-sort-item { cursor: grab; }
     .cat-sort-item.dragging > button { border-color: #6366f1 !important; background-color: #eef2ff !important; box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.18); }
-    .cat-drop-before { box-shadow: inset 0 3px 0 0 #4f46e5 !important; border-top-color: #4f46e5 !important; }
-    .cat-drop-after { box-shadow: inset 0 -3px 0 0 #4f46e5 !important; border-bottom-color: #4f46e5 !important; }
+    /* 蓝色落点线画在按钮之上：旧写法用 inset box-shadow，会被内层白底按钮整块盖住，看起来像“没有线” */
+    .cat-sort-item::after {
+      content: '';
+      display: none;
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      height: 3px;
+      border-radius: 9999px;
+      background: #4f46e5;
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.16), 0 2px 5px rgba(79, 70, 229, 0.35);
+      z-index: 20;
+      pointer-events: none;
+    }
+    .cat-drop-before::after { display: block; top: -2px; }
+    .cat-drop-after::after { display: block; bottom: -2px; }
     /* ===== 第四轮新增（回收站 / 删分类弹窗 / 看板切换） ===== */
     .w-6 { width: 1.5rem; }
     .h-6 { height: 1.5rem; }
@@ -1003,6 +1017,37 @@
       .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
+    /* 级联修复：.grid-cols-1 定义在本段之前，会把早先声明的 md:grid-cols-3 盖掉，
+       导致倒计日页在宽屏也永远只有一列。这里按 Tailwind 的正确优先级补回。 */
+    @media (min-width: 768px) {
+      .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .md\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+      .md\:col-span-5 { grid-column: span 5 / span 5; }
+      .md\:col-span-7 { grid-column: span 7 / span 7; }
+    }
+
+    /* ===== 2026-11-26 交互体检：按钮不折字 / 键盘焦点可见 / 卡片更安静 ===== */
+    /* 画布工具条在窗口变窄时宁可整体换行，也不把按钮文字从中间折断（「就近 / 对齐」「铺 / 满」） */
+    .btn-soft, .canvas-toolbar button, header button {
+      white-space: nowrap;
+    }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
+    }
+    /* 空阶段位保留占位（行高绝不变），但平时淡出，避免每张卡片都挂一个「+ 标签」 */
+    .stage-empty-hint {
+      opacity: 0.26;
+      transition: opacity 0.14s ease;
+    }
+    .node-card:hover .stage-empty-hint,
+    .node-card.node-selected .stage-empty-hint,
+    .node-card.node-multi-selected .stage-empty-hint,
+    .stage-empty-hint:focus-visible {
+      opacity: 1;
+    }
+
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -1137,7 +1182,7 @@
               <button type="button" id="depthBtnAll" onclick="setOverviewDepth('all')" class="px-2 py-0.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition">全部</button>
             </div>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="canvas-toolbar flex items-center gap-1.5 flex-wrap">
             <div class="relative flex items-center">
               <input id="searchNodeInput" oninput="handleSearchInput(this.value)" type="text" placeholder="🔍 搜索节点或备注..." class="text-[13px] bg-slate-100/90 border border-slate-200/90 rounded-xl pl-3 pr-6 py-1.5 w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
               <button id="clearSearchBtn" type="button" onclick="clearSearchInput()" title="清空搜索" class="hidden absolute right-2 text-[12px] text-slate-400 hover:text-slate-700 font-bold leading-none">✕</button>
@@ -1196,7 +1241,7 @@
         </div>
 
         <!-- Interactive Mind-Map Viewport -->
-        <div id="canvasViewport" ondragstart="return false;" ondblclick="handleCanvasDblClick(event)" onmousedown="startPanCanvas(event)" ontouchstart="startTouchPanCanvas(event)" class="flex-1 canvas-grid overflow-hidden relative">
+        <div id="canvasViewport" ondragstart="return false;" onclick="handleCanvasBlankClick(event)" ondblclick="handleCanvasDblClick(event)" onmousedown="startPanCanvas(event)" ontouchstart="startTouchPanCanvas(event)" class="flex-1 canvas-grid overflow-hidden relative">
           <div id="canvasStage" class="relative origin-top-left" style="width: 1600px; height: 1000px;">
             <div id="zonesContainer" class="absolute inset-0 pointer-events-none" style="z-index: 1;"></div>
             <svg id="edgesSvg" style="overflow: visible; z-index: 5;" class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -1494,6 +1539,9 @@
   <div id="toastBox" class="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium transition-all duration-200 opacity-0 pointer-events-none z-50">
     操作成功
   </div>
+
+  <!-- 卡片速览：长文献标题在 228px 卡片里必然被截断，悬停半秒后在光标旁补一层只读全文，不影响卡片固定高度 -->
+  <div id="cardQuickPeek" class="hidden fixed z-40 pointer-events-none" style="max-width:340px;background:rgba(255,255,255,0.98);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 28px -8px rgba(15,23,42,.22);padding:9px 12px;font-size:12px;color:#334155;"></div>
 
   <!-- ===== 自定义右键菜单 ===== -->
   <div id="contextMenu" class="fixed hidden z-[100] min-w-[190px] py-1.5 rounded-xl bg-white border border-slate-200 shadow-xl text-[13px] text-slate-700 select-none">
@@ -3817,6 +3865,58 @@
       }, 2800);
     }
 
+    // ===== 卡片速览：标题/备注在固定 92px 卡片里看不全，悬停约半秒在光标旁展开只读全文 =====
+    let _peekTimer = null;
+    let _peekTaskId = null;
+    let _peekX = 0;
+    let _peekY = 0;
+    function hideCardPeek() {
+      if (_peekTimer) { clearTimeout(_peekTimer); _peekTimer = null; }
+      _peekTaskId = null;
+      const box = document.getElementById('cardQuickPeek');
+      if (box) box.classList.add('hidden');
+    }
+    function renderCardPeek() {
+      const box = document.getElementById('cardQuickPeek');
+      const task = getTaskById(_peekTaskId);
+      if (!box || !task) return;
+      const cat = getCategoryById(task.categoryId);
+      const prog = computeSubtaskProgress(task);
+      const stateTxt = task.status === 'done' ? '已完成' : (task.status === 'in_progress' ? '进行中' : '待办');
+      box.innerHTML = `
+        <div style="font-weight:700;color:#0f172a;font-size:12.5px;line-height:1.45;word-break:break-word;">${escapeHtml(task.title)}</div>
+        <div style="margin-top:4px;color:#94a3b8;font-size:11px;">${escapeHtml(cat ? cat.name : '未分类')}${task.stage ? ' · ' + escapeHtml(task.stage) : ''} · ${stateTxt}${prog.total ? ' · 子步骤 ' + prog.done + '/' + prog.total : ''}</div>
+        ${task.notes ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;color:#475569;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:96px;overflow:hidden;">${escapeHtml(task.notes)}</div>` : ''}
+      `;
+      box.classList.remove('hidden');
+      const w = box.offsetWidth;
+      const h = box.offsetHeight;
+      box.style.left = Math.max(8, Math.min(_peekX + 16, window.innerWidth - w - 8)) + 'px';
+      box.style.top = Math.max(8, Math.min(_peekY + 18, window.innerHeight - h - 8)) + 'px';
+    }
+    document.addEventListener('mouseover', (e) => {
+      if (appState.draggingNodeId || appState.wiringFromTaskId || appState.wiringFromHubCatId) return;
+      const el = e.target && e.target.closest ? e.target.closest('[data-node-id]') : null;
+      if (!el) { if (_peekTaskId) hideCardPeek(); return; }
+      const id = el.getAttribute('data-node-id');
+      if (id === _peekTaskId) return;
+      hideCardPeek();
+      const task = getTaskById(id);
+      if (!task || (String(task.title || '').length <= 16 && !(task.notes || '').trim())) return;
+      _peekTaskId = id;
+      _peekX = e.clientX;
+      _peekY = e.clientY;
+      _peekTimer = setTimeout(() => { _peekTimer = null; renderCardPeek(); }, 480);
+    });
+    document.addEventListener('mouseout', (e) => {
+      if (!_peekTaskId) return;
+      const el = e.target && e.target.closest ? e.target.closest('[data-node-id]') : null;
+      if (el && el.contains(e.relatedTarget)) return;
+      hideCardPeek();
+    });
+    document.addEventListener('mousedown', hideCardPeek, true);
+    document.addEventListener('wheel', hideCardPeek, { passive: true });
+
     function getTaskById(id) {
       return appState.data.tasks.find(t => t.id === id) || null;
     }
@@ -4995,7 +5095,7 @@
         // 第 2 行（固定 20px）：左侧放阶段标签胶囊 + 步骤/前置或后置/备注微章；右侧放创建日/截止日（二选一）
         const stagePillHtml = slots.hasStage
           ? `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); openStageQuickMenu(event, '${task.id}')" class="px-1.5 py-0.2 rounded ${palette.lightBadge} font-medium truncate max-w-[78px] text-[10.5px] leading-4 hover:opacity-85 shrink-0" title="点击快速修改阶段标签：${escapeAttr(task.stage)}">${escapeHtml(task.stage)}</button>`
-          : `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); openStageQuickMenu(event, '${task.id}')" class="px-1.5 py-0.2 rounded bg-slate-100/90 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 font-medium text-[10.5px] leading-4 shrink-0 transition" title="点击快速设置阶段标签">+ 标签</button>`;
+          : `<button type="button" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); openStageQuickMenu(event, '${task.id}')" class="stage-empty-hint px-1.5 py-0.2 rounded bg-slate-100/90 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 font-medium text-[10.5px] leading-4 shrink-0 transition" title="点击快速设置阶段标签">+ 标签</button>`;
 
         const subBadgeHtml = slots.hasSubs
           ? `<span class="px-1 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] leading-4 tabular-nums shrink-0" title="子步骤进度 ${prog.done}/${prog.total}">📋${prog.done}/${prog.total}</span>`
@@ -5686,6 +5786,7 @@
     }
 
     function renderAll() {
+      hideCardPeek();
       renderStatsAndSidebar();
       renderGraphCanvas();
       renderRecentTasksList();
@@ -5782,7 +5883,23 @@
     }
 
     function deselectTask() {
-      closeInspector();
+      appState.selectedTaskId = null;
+      if (appState.selectedTaskIds) appState.selectedTaskIds.clear();
+      appState.inspectorOpen = false;
+      renderAll();
+    }
+
+    // 点击画布空白处取消选中。平移画布时浏览器也会补发 click，
+    // 用「按下 → 松开位移 > 5px」把这种拖拽排除掉，避免一挪动画布就掉选中。
+    function handleCanvasBlankClick(e) {
+      if (appState.suppressNextClick) return;
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-node-id], [data-hub-id], .zone-drag-handle, .port-dot, .edge-hit-path, button, input, select, textarea, label, a')) return;
+      const s = appState.canvasClickStart;
+      appState.canvasClickStart = null;
+      if (s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5) return;
+      if (!appState.selectedTaskId && !(appState.selectedTaskIds && appState.selectedTaskIds.size)) return;
+      deselectTask();
     }
 
     function focusInspectorTitle(taskId) {
@@ -5868,12 +5985,44 @@
       handleSearchInput('');
     }
 
+    // 「点 100% 却看到一片空白」的兜底：缩放复位后若没有任何节点落在视口内，
+    // 只平移把可见内容拉回视野，绝不再改动缩放比例。
+    function ensureContentInView() {
+      const vp = document.getElementById('canvasViewport');
+      if (!vp) return;
+      const z = appState.zoom || 1;
+      const px = appState.panOffsetX || 0;
+      const py = appState.panOffsetY || 0;
+      const vw = vp.clientWidth || 800;
+      const vh = vp.clientHeight || 600;
+      const boxes = [];
+      getVisibleCanvasCategories().forEach(c => {
+        const p = getHubRenderPos(c);
+        boxes.push({ x: p.x * z + px, y: p.y * z + py, w: HUB_W * z, h: HUB_H * z });
+      });
+      getFilteredTasks().forEach(t => {
+        const p = getTaskRenderPos(t);
+        boxes.push({ x: p.x * z + px, y: p.y * z + py, w: NODE_W * z, h: getNodeHeight() * z });
+      });
+      if (!boxes.length) return;
+      const visible = boxes.some(b => b.x < vw && b.x + b.w > 0 && b.y < vh && b.y + b.h > 0);
+      if (visible) return;
+      const minX = Math.min(...boxes.map(b => b.x));
+      const maxX = Math.max(...boxes.map(b => b.x + b.w));
+      const minY = Math.min(...boxes.map(b => b.y));
+      const maxY = Math.max(...boxes.map(b => b.y + b.h));
+      appState.panOffsetX = Math.round(px + vw / 2 - (minX + maxX) / 2);
+      appState.panOffsetY = Math.round(py + vh / 2 - (minY + maxY) / 2);
+      applyStageTransform();
+    }
+
     function resetZoom() {
       const vp = document.getElementById('canvasViewport');
       const rect = vp ? vp.getBoundingClientRect() : null;
       const cx = rect ? rect.left + rect.width / 2 : undefined;
       const cy = rect ? rect.top + rect.height / 2 : undefined;
       zoomCanvas(1.0 - (appState.zoom || 1.0), cx, cy);
+      ensureContentInView();
       showToast('已恢复 100% 缩放');
     }
 
@@ -6219,6 +6368,7 @@
 
       const vp = document.getElementById('canvasViewport');
       if (!vp) return;
+      appState.canvasClickStart = { x: e.clientX, y: e.clientY };
 
       // Shift + 拖空白 = 框选多张卡片
       if (e.shiftKey && e.button === 0) {
@@ -6257,6 +6407,7 @@
       const vp = document.getElementById('canvasViewport');
       if (!vp) return;
       const t = e.touches[0];
+      appState.canvasClickStart = { x: t.clientX, y: t.clientY };
       appState.isPanningCanvas = true;
       appState.panStartX = t.clientX;
       appState.panStartY = t.clientY;
@@ -6608,8 +6759,8 @@
             return;
           }
         }
-        if (appState.inspectorOpen) {
-          closeInspector();
+        if (appState.inspectorOpen || appState.selectedTaskId || (appState.selectedTaskIds && appState.selectedTaskIds.size)) {
+          deselectTask();
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         // Ctrl+Enter：任何时候都能新建记录（包括在输入框里）
