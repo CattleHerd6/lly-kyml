@@ -1389,9 +1389,9 @@
               <h2 class="text-[20px] font-bold text-slate-800 tracking-tight">📝 科研纯便签墙</h2>
               <p class="text-[13px] text-slate-500 mt-0.5">存放临时灵感、组会随记、实验碎念——完全独立于待办进度统计，支持一键转为正式导图卡片，自动同步本地与 GitHub</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 text-[12px] text-slate-500">
               <span class="px-2.5 py-1 rounded-lg bg-amber-100/80 text-amber-900 font-semibold border border-amber-200" id="memoTotalCountBadge">0 条便签</span>
-              <button type="button" onclick="openMemoModal()" class="btn-primary px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold flex items-center gap-1.5">
+              <button type="button" onclick="openMemoModal()" class="btn-primary px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold flex items-center gap-1.5 shrink-0">
                 <span>+</span><span>新增便签</span>
               </button>
             </div>
@@ -10532,6 +10532,9 @@
       // 输入框里保留浏览器原生右键（复制/粘贴很有用）
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      // 便签墙 / 倒计日 / 番茄钟等纯内容页：交还浏览器原生右键，
+      // 不再弹导图操作菜单（那里出现「新增科研工作」纯属误伤，也无法复制便签文字）
+      if (t && t.closest && t.closest('#memoSection, #countdownSection, #pomodoroSection')) return;
       e.preventDefault();
       hideContextMenu();
       const menu = buildContextMenu(e.clientX, e.clientY, t);
