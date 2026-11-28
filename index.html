@@ -69,6 +69,8 @@
       background-image: radial-gradient(#adbacb 1.2px, transparent 1.2px);
       background-size: 24px 24px;
     }
+    /* 触摸补全（2026-11-28）：画布区域交给应用自己处理手势（拖拽/捏合缩放），禁止浏览器页面滚动与双击缩放 */
+    #canvasViewport { touch-action: none; }
     @keyframes dashFlow {
       to {
         stroke-dashoffset: -24;
@@ -83,6 +85,9 @@
       user-select: none;
       -webkit-user-drag: none;
       touch-action: none;
+      /* 视口外卡片跳过内容布局与绘制（2026-11-28）：大图滚动/拖动时只渲染可视区附近的卡片 */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 228px 92px;
     }
     .node-dragging {
       transition: none !important;
@@ -437,6 +442,7 @@
     /* ===== 右键菜单 ===== */
     .z-\[100\] { z-index: 100; }
     .z-\[90\] { z-index: 90; }
+    .z-\[80\] { z-index: 80; }
     .min-w-\[190px\] { min-width: 190px; }
     .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
     .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
@@ -670,6 +676,7 @@
     .max-w-\[80px\] { max-width: 80px; }
     .max-w-\[100px\] { max-width: 100px; }
     .accent-indigo-600 { accent-color: #4f46e5; }
+    .accent-amber-600 { accent-color: #d97706; }
     .accent-rose-600 { accent-color: #e11d48; }
     .hover\:bg-emerald-100:hover { background-color: #d1fae5; }
     .hover\:bg-rose-100:hover { background-color: #ffe4e6; }
@@ -1382,24 +1389,11 @@
               <h2 class="text-[20px] font-bold text-slate-800 tracking-tight">📝 科研纯便签墙</h2>
               <p class="text-[13px] text-slate-500 mt-0.5">存放临时灵感、组会随记、实验碎念——完全独立于待办进度统计，支持一键转为正式导图卡片，自动同步本地与 GitHub</p>
             </div>
-            <div class="flex items-center gap-1.5 text-[12px] text-slate-500">
+            <div class="flex items-center gap-2">
               <span class="px-2.5 py-1 rounded-lg bg-amber-100/80 text-amber-900 font-semibold border border-amber-200" id="memoTotalCountBadge">0 条便签</span>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-amber-200/90 shadow-sm p-3.5 space-y-2.5">
-            <textarea id="memoPageInput" rows="2" placeholder="写下一段临时想法、试剂提醒或组会记录…（Ctrl + Enter 快速保存）"
-              onkeydown="if((event.ctrlKey || event.metaKey) && event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitMemoFromPage();}"
-              class="w-full text-[13.5px] bg-amber-50/40 focus:bg-white border border-amber-200/80 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none transition"></textarea>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2 text-[12px] text-slate-500">
-                <span>便签颜色：</span>
-                <button type="button" onclick="setNewMemoColor('amber')" id="memoColorBtn_amber" class="w-5 h-5 rounded-full bg-amber-200 border-2 border-amber-500 ring-2 ring-amber-300 transition" title="暖黄（默认）"></button>
-                <button type="button" onclick="setNewMemoColor('emerald')" id="memoColorBtn_emerald" class="w-5 h-5 rounded-full bg-emerald-200 border-2 border-emerald-400 transition" title="薄荷绿"></button>
-                <button type="button" onclick="setNewMemoColor('violet')" id="memoColorBtn_violet" class="w-5 h-5 rounded-full bg-violet-200 border-2 border-violet-400 transition" title="淡紫"></button>
-                <button type="button" onclick="setNewMemoColor('rose')" id="memoColorBtn_rose" class="w-5 h-5 rounded-full bg-rose-200 border-2 border-rose-400 transition" title="樱粉"></button>
-              </div>
-              <button type="button" onclick="submitMemoFromPage()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-semibold shadow-sm transition">+ 新增便签</button>
+              <button type="button" onclick="openMemoModal()" class="btn-primary px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold flex items-center gap-1.5">
+                <span>+</span><span>新增便签</span>
+              </button>
             </div>
           </div>
 
@@ -1416,7 +1410,7 @@
   </div>
 
   <!-- Modal: Secondary Confirmation for Destructive Operations -->
-  <div id="confirmActionModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+  <div id="confirmActionModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-[80] p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <h3 id="confirmModalTitle" class="font-bold text-slate-800 text-[15px]">⚠️ 确认覆盖当前数据？</h3>
@@ -1523,17 +1517,23 @@
   </div>
 
   <!-- Toast Notification -->
-  <div id="dirBanner" class="fixed top-16 left-1/2 -translate-x-1/2 z-40 hidden items-center gap-2 bg-amber-50 border border-amber-300 text-amber-900 text-[13px] px-3 py-2 rounded-xl shadow-lg">
+  <div id="dirBanner" class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] hidden items-center gap-2 bg-amber-50 border border-amber-300 text-amber-900 text-[13px] px-3 py-2 rounded-xl shadow-lg">
     <span>上次用的数据文件夹需要点一下，才能继续自动保存</span>
     <button onclick="resumeDataDir()" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium">继续使用</button>
     <button onclick="document.getElementById('dirBanner').classList.add('hidden')" class="px-1.5 font-bold text-amber-700">✕</button>
   </div>
 
   <!-- 数据文件损坏：冻结自动写入，并给出一键从 .bak 恢复的入口 -->
-  <div id="dirErrorBanner" style="top:5.5rem" class="fixed left-1/2 -translate-x-1/2 z-40 hidden items-center gap-2 bg-rose-50 border border-rose-300 text-rose-900 text-[13px] px-3 py-2 rounded-xl shadow-lg max-w-[92vw]">
+  <div id="dirErrorBanner" style="top:5.5rem" class="fixed left-1/2 -translate-x-1/2 z-[60] hidden items-center gap-2 bg-rose-50 border border-rose-300 text-rose-900 text-[13px] px-3 py-2 rounded-xl shadow-lg max-w-[92vw]">
     <span id="dirErrorText">⚠️ 数据文件读不出来，已暂停自动写入，硬盘里的原文件没有被改动。</span>
     <button onclick="recoverFromBak()" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium shrink-0">从 .bak 恢复</button>
     <button onclick="document.getElementById('dirErrorBanner').classList.add('hidden')" class="px-1.5 font-bold text-rose-700 shrink-0">✕</button>
+  </div>
+
+  <!-- ===== 多标签互斥只读提示（2026-11-28） ===== -->
+  <div id="readOnlyBanner" class="fixed top-24 left-1/2 -translate-x-1/2 z-[60] hidden items-center gap-2 bg-slate-900/90 text-white text-[12.5px] px-3.5 py-2 rounded-xl shadow-lg max-w-[92vw]">
+    <span>👁 本页已在其他标签页打开，此处为只读预览；关闭另一标签页后约 8 秒内自动恢复编辑</span>
+    <button onclick="document.getElementById('readOnlyBanner').classList.add('hidden')" class="px-1.5 font-bold text-slate-300">✕</button>
   </div>
 
   <div id="toastBox" class="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium transition-all duration-200 opacity-0 pointer-events-none z-50">
@@ -1767,6 +1767,38 @@
           <button type="button" onclick="closeEdgeLabelModal()" class="btn-soft px-3.5 py-1.5 rounded-xl text-[13px] text-slate-600">取消</button>
           <button type="button" onclick="saveEdgeLabelModal()" class="btn-primary px-4 py-1.5 rounded-xl text-[13px] text-white font-semibold">保存标注</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 便签新增弹窗（2026-11-28 交互统一：与倒计日/新建任务一致的「点新增 → 弹窗填写」模式） ===== -->
+  <div id="memoModal" class="fixed inset-0 bg-slate-900/45 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="memoModalTitle" class="font-bold text-slate-800 text-[15px]">📝 新增便签</h3>
+        <button onclick="closeMemoModal()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 text-[13px] font-bold">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 text-[13px]">
+        <textarea id="inputMemoText" rows="5" placeholder="写下一段临时想法、试剂提醒或组会记录…（Ctrl + Enter 保存）"
+          onkeydown="if((event.ctrlKey || event.metaKey) && event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault(); submitMemoModal();}"
+          class="w-full text-[13.5px] bg-amber-50/40 focus:bg-white border border-amber-200/80 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none transition"></textarea>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 text-[12px] text-slate-500">
+            <span>颜色：</span>
+            <button type="button" onclick="setMemoModalColor('amber')" id="memoModalColorBtn_amber" class="w-5 h-5 rounded-full bg-amber-200 border-2 border-amber-500 ring-2 ring-amber-300 transition" title="暖黄（默认）"></button>
+            <button type="button" onclick="setMemoModalColor('emerald')" id="memoModalColorBtn_emerald" class="w-5 h-5 rounded-full bg-emerald-200 border-2 border-emerald-400 transition" title="薄荷绿"></button>
+            <button type="button" onclick="setMemoModalColor('violet')" id="memoModalColorBtn_violet" class="w-5 h-5 rounded-full bg-violet-200 border-2 border-violet-400 transition" title="淡紫"></button>
+            <button type="button" onclick="setMemoModalColor('rose')" id="memoModalColorBtn_rose" class="w-5 h-5 rounded-full bg-rose-200 border-2 border-rose-400 transition" title="樱粉"></button>
+          </div>
+          <label class="flex items-center gap-1.5 text-[12.5px] text-slate-600 cursor-pointer">
+            <input id="inputMemoPinned" type="checkbox" class="accent-amber-600" />
+            <span>📌 置顶</span>
+          </label>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeMemoModal()" class="btn-soft px-4 py-1.5 rounded-xl text-slate-700 text-[13px] font-medium">取消</button>
+        <button onclick="submitMemoModal()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-semibold shadow-sm transition">保存并上墙</button>
       </div>
     </div>
   </div>
@@ -2409,8 +2441,11 @@
         }
         if (raw) {
           const parsed = migrateDataSchema(JSON.parse(raw));
-          if (parsed && parsed.categories.length > 0) {
+          // 空工作区（删光了所有课题）也是合法状态，必须原样恢复；
+          // 以前 categories.length===0 时整体丢弃已存数据回退演示种子，导致「删光后刷新」演示数据复活。
+          if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.tasks)) {
             appState.data = parsed;
+            bumpDataVersion();
             const activeTasks = getActiveTasks();
             if (activeTasks.length > 0 && !getTaskById(appState.selectedTaskId)) {
               appState.selectedTaskId = activeTasks[0].id;
@@ -2436,13 +2471,20 @@
       else if (kind === 'readerror') { dot = 'bg-rose-500'; text = '数据文件读不出来 · 已暂停写入'; }
       else if (kind === 'fail') { dot = 'bg-rose-500'; text = '写入失败 · 点此重新授权'; }
       else if (kind === 'local') { text = '已存到浏览器（未关联文件夹）'; }
+      else if (kind === 'readonly') { dot = 'bg-slate-400'; text = '👁 只读模式（已在其他标签页打开，本页编辑不保存）'; }
       else if (kind === 'cachefail') { dot = 'bg-rose-500'; text = '浏览器缓存写入失败'; }
       el.innerHTML = '<span class="w-2 h-2 rounded-full ' + dot + ' inline-block"></span> ' + text + ' (' + t + ')';
     }
 
     function saveState() {
+      // 多标签互斥（2026-11-28）：本页处于只读模式时拒绝写入（另一标签页持有写入锁）
+      if (appState.readOnlyMode) {
+        setSaveStatus('readonly');
+        return;
+      }
       appState.data.schemaVersion = CURRENT_SCHEMA_VERSION;
       appState.data.updatedAt = new Date().toISOString();
+      bumpDataVersion();
       let jsonPayload = '';
       try {
         jsonPayload = JSON.stringify(appState.data, null, 2);
@@ -2981,6 +3023,8 @@
 
       const onTouchMove = (ev) => {
         if (!ev.touches || ev.touches.length !== 1) return;
+        // 拉线期间阻止页面滚动/手势（监听已改为 passive:false）
+        if (ev.cancelable) ev.preventDefault();
         onMove({ clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY });
       };
       const onTouchEnd = (ev) => {
@@ -3054,7 +3098,7 @@
 
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
-      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
       window.addEventListener('touchend', onTouchEnd);
       window.addEventListener('touchcancel', onTouchCancel);
       window.addEventListener('blur', cleanup);
@@ -3110,6 +3154,8 @@
 
       const onTouchMove = (ev) => {
         if (!ev.touches || ev.touches.length !== 1) return;
+        // 拉线期间阻止页面滚动/手势（监听已改为 passive:false）
+        if (ev.cancelable) ev.preventDefault();
         onMove({ clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY });
       };
 
@@ -3195,7 +3241,7 @@
 
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
-      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
       window.addEventListener('touchend', onTouchEnd);
       window.addEventListener('touchcancel', onTouchCancel);
       window.addEventListener('blur', cleanup);
@@ -3917,8 +3963,63 @@
     document.addEventListener('mousedown', hideCardPeek, true);
     document.addEventListener('wheel', hideCardPeek, { passive: true });
 
+    // ===== 派生数据缓存层（2026-11-28 性能改造）=====
+    // dataVersion：任何会改变任务集合 / deps 结构的修改都经 saveState() 走到这里 +1，
+    // 下面的索引/邻接表/过滤缓存随之失效重建。额外核对 tasks 数组引用与长度，
+    // 兜住个别绕过 saveState 直接改数组的路径。
+    let __dataVersion = 0;
+    let __taskIndexMap = null;
+    let __taskIndexStamp = { v: -1, ref: null, len: -1 };
+    let __depAdjMap = null;
+    let __depAdjStamp = { v: -1, ref: null, len: -1 };
+    function bumpDataVersion() {
+      __dataVersion++;
+    }
+    function dataStamp() {
+      const tasks = appState.data.tasks || [];
+      return { tasks, v: __dataVersion, ref: tasks, len: tasks.length };
+    }
+    function ensureTaskIndex() {
+      const s = dataStamp();
+      if (__taskIndexMap && __taskIndexStamp.v === s.v && __taskIndexStamp.ref === s.ref && __taskIndexStamp.len === s.len) {
+        return __taskIndexMap;
+      }
+      const map = new Map();
+      for (let i = 0; i < s.tasks.length; i++) map.set(s.tasks[i].id, s.tasks[i]);
+      __taskIndexMap = map;
+      __taskIndexStamp = { v: s.v, ref: s.ref, len: s.len };
+      return map;
+    }
+    // deps 邻接表：depId -> [直接后置任务]，语义与 getTaskDeps 的有效性过滤一致
+    // （活跃课题自动忽略指向已归档课题的跨课题依赖）
+    function ensureDepAdjacency() {
+      const s = dataStamp();
+      if (__depAdjMap && __depAdjStamp.v === s.v && __depAdjStamp.ref === s.ref && __depAdjStamp.len === s.len) {
+        return __depAdjMap;
+      }
+      const archivedCats = new Set();
+      (appState.data.categories || []).forEach(c => { if (c.archived) archivedCats.add(c.id); });
+      const index = ensureTaskIndex();
+      const map = new Map();
+      for (let i = 0; i < s.tasks.length; i++) {
+        const t = s.tasks[i];
+        if (!Array.isArray(t.deps) || t.deps.length === 0) continue;
+        const selfArchived = archivedCats.has(t.categoryId);
+        for (const dId of t.deps) {
+          const depTask = index.get(dId);
+          if (!depTask) continue;
+          if (!selfArchived && archivedCats.has(depTask.categoryId)) continue;
+          if (!map.has(dId)) map.set(dId, []);
+          map.get(dId).push(t);
+        }
+      }
+      __depAdjMap = map;
+      __depAdjStamp = { v: s.v, ref: s.ref, len: s.len };
+      return map;
+    }
+
     function getTaskById(id) {
-      return appState.data.tasks.find(t => t.id === id) || null;
+      return ensureTaskIndex().get(id) || null;
     }
 
     // 找不到就返回 null —— 「找不到」与「用第一个兜底」是两件事。
@@ -4167,88 +4268,11 @@
     }
 
     function getDownstreamTasks(taskId) {
-      return appState.data.tasks.filter(t => getTaskDeps(t).includes(taskId));
+      return (ensureDepAdjacency().get(taskId) || []).slice();
     }
 
-    // =========================================================================
-    // 树枝末梢逆向推动引擎（Backward Chaining / Urgency Inheritance）
-    // 核心思想：当某条脉络的末梢或下游节点 C 打了星标 🔥（或今明到期/逾期），但因前置未完而被锁住时，
-    // 系统自动沿着依赖链从后往前（C -> B -> A）逆向回溯，将推动力传导给上游未完成的祖先节点。
-    // 其中当前已解锁的最前排阻塞源头 A 会自动升入「🔥 重点攻坚」并挂上『⚡推动: C』徽章；
-    // 一旦 A 完成，推动力自动顺延给刚解锁的 B，直到最终完成末梢 C！
-    // =========================================================================
-    let _cachedDriveMap = null;
-    function invalidateDriveCache() {
-      _cachedDriveMap = null;
-    }
-
-    function getBackwardDriveMap() {
-      const map = new Map();
-      const tasks = appState.data.tasks || [];
-      tasks.forEach(t => {
-        map.set(t.id, {
-          starredTargets: [],   // 下游依赖本节点且打了星标 🔥 的未完成目标节点
-          urgentTargets: [],    // 下游依赖本节点且今明到期/逾期的未完成目标节点
-          frontlineBlockers: [] // 若本节点未解锁，当前正卡住本节点的「已解锁最前排前置」
-        });
-      });
-
-      // 对每个未完成的目标节点 G，沿未完成的前置链向上游逆向搜索 (Backward BFS)
-      tasks.forEach(goal => {
-        if (goal.status === 'done') return;
-        const dueMeta = getDueDateMeta(goal.dueDate, false);
-        const isGoalStarred = Boolean(goal.isRecent);
-        const isGoalUrgent = dueMeta.sortKey <= 1;
-
-        const visitedUp = new Set();
-        const queue = getTaskDeps(goal).slice();
-        while (queue.length > 0) {
-          const upId = queue.shift();
-          if (!upId || visitedUp.has(upId) || upId === goal.id) continue;
-          visitedUp.add(upId);
-          const upTask = getTaskById(upId);
-          if (!upTask || upTask.status === 'done') continue;
-
-          const upEntry = map.get(upTask.id);
-          if (upEntry) {
-            if (isGoalStarred && !upEntry.starredTargets.some(x => x.id === goal.id)) {
-              upEntry.starredTargets.push(goal);
-            }
-            if (isGoalUrgent && !upEntry.urgentTargets.some(x => x.id === goal.id)) {
-              upEntry.urgentTargets.push(goal);
-            }
-          }
-
-          if (isTaskUnlocked(upTask)) {
-            // upTask 是当前已解锁的最前排阻塞源头！记录到 goal 的 frontlineBlockers
-            const goalEntry = map.get(goal.id);
-            if (goalEntry && !goalEntry.frontlineBlockers.some(x => x.id === upTask.id)) {
-              goalEntry.frontlineBlockers.push(upTask);
-            }
-          } else {
-            // upTask 自己也未解锁，继续往上追溯它的未完成前置
-            getTaskDeps(upTask).forEach(grandUpId => {
-              if (!visitedUp.has(grandUpId)) queue.push(grandUpId);
-            });
-          }
-        }
-      });
-
-      return map;
-    }
-
-    function getTaskDriveInfo(task) {
-      if (!task) return { starredTargets: [], urgentTargets: [], frontlineBlockers: [], isDrivenByStar: false, isDrivenByUrgent: false };
-      const map = getBackwardDriveMap();
-      const info = map.get(task.id) || { starredTargets: [], urgentTargets: [], frontlineBlockers: [] };
-      return {
-        starredTargets: info.starredTargets,
-        urgentTargets: info.urgentTargets,
-        frontlineBlockers: info.frontlineBlockers,
-        isDrivenByStar: info.starredTargets.length > 0,
-        isDrivenByUrgent: info.urgentTargets.length > 0
-      };
-    }
+    // 注：原「树枝末梢逆向推动引擎」（getBackwardDriveMap / getTaskDriveInfo / invalidateDriveCache）
+    // 为无调用方的死代码，2026-11-28 性能清理时移除；历史实现可从备份文件 index_备份_优化前_20261128.html 找回。
 
     function computeSubtaskProgress(task) {
       const list = task.subtasks || [];
@@ -4284,6 +4308,10 @@
     }
 
     function countHiddenDescendantsInOverview(taskId, visibleSet) {
+      // 同一次渲染里 visibleSet 固定，子树计数按任务 id 记忆化（共享子树只算一次）
+      if (!visibleSet.__hiddenCountCache) visibleSet.__hiddenCountCache = new Map();
+      const memo = visibleSet.__hiddenCountCache;
+      if (memo.has(taskId)) return memo.get(taskId);
       const visited = new Set();
       const stack = getDownstreamTasks(taskId).map(c => c.id);
       let count = 0;
@@ -4296,6 +4324,7 @@
         if (!visibleSet.has(cur)) count++;
         getDownstreamTasks(cur).forEach(c => { if (!visited.has(c.id)) stack.push(c.id); });
       }
+      memo.set(taskId, count);
       return count;
     }
 
@@ -4310,7 +4339,8 @@
       appState.overviewDepth = depth === 'all' ? 'all' : Number(depth);
       try { localStorage.setItem('lly_overview_depth_v1', String(appState.overviewDepth)); } catch (e) {}
       renderAll();
-      centerVisibleGraphInViewport(false);
+      // 折叠层级切换不再强制 re-fit（会把用户缩放比例重置回适配值），只做平移兜底
+      ensureContentInView();
     }
 
     function syncOverviewDepthUI() {
@@ -4330,15 +4360,32 @@
       if (bAll) bAll.className = d === 'all' ? activeCls : idleCls;
     }
 
+    let __filteredCacheKey = null;
+    let __filteredCacheValue = null;
+    let __depthMapCacheVersion = -1;
+    const __depthMapCache = new Map();
+    function getSameCatDepthMapCached(catId) {
+      if (__depthMapCacheVersion !== __dataVersion) {
+        __depthMapCache.clear();
+        __depthMapCacheVersion = __dataVersion;
+      }
+      if (!__depthMapCache.has(catId)) __depthMapCache.set(catId, computeSameCatDepthMap(catId));
+      return __depthMapCache.get(catId);
+    }
     function getFilteredTasks(forBoard = false) {
+      // 同一数据版本 + 同一筛选状态下直接复用上一次结果（一次交互内 renderAll 会重复取 4-8 次）
+      ensureTaskIndex();
+      const tasks = appState.data.tasks || [];
+      const cacheKey = `${forBoard ? 'b' : 'c'}|${appState.viewingArchivedCatId || ''}|${appState.selectedCategoryId}|${appState.overviewDepth}|${appState.searchQuery.trim().toLowerCase()}|${__dataVersion}|${tasks.length}|${(appState.data.categories || []).length}|${tasks === __taskIndexStamp.ref ? 1 : 0}`;
+      if (__filteredCacheKey === cacheKey && __filteredCacheValue) return __filteredCacheValue;
       const trimDepth = !forBoard && isOverviewDepthTrimmed() && appState.searchQuery.trim() === '';
       const depthLimit = trimDepth ? Number(appState.overviewDepth) : Infinity;
       const depthCache = new Map();
       const getDepth = (t) => {
-        if (!depthCache.has(t.categoryId)) depthCache.set(t.categoryId, computeSameCatDepthMap(t.categoryId));
+        if (!depthCache.has(t.categoryId)) depthCache.set(t.categoryId, getSameCatDepthMapCached(t.categoryId));
         return depthCache.get(t.categoryId).get(t.id) || 1;
       };
-      return appState.data.tasks.filter(t => {
+      const result = tasks.filter(t => {
         if (!forBoard && appState.viewingArchivedCatId) {
           if (t.categoryId !== appState.viewingArchivedCatId) return false;
         } else {
@@ -4358,6 +4405,9 @@
         }
         return true;
       });
+      __filteredCacheKey = cacheKey;
+      __filteredCacheValue = result;
+      return result;
     }
 
     function setAppView(view) {
@@ -4673,10 +4723,6 @@
       return NODE_H;
     }
 
-    function getNodeCompactHeight(task) {
-      return getNodeHeight(task);
-    }
-
     // 总览分级折叠（2级/3级）时的「无损临时紧贴偏移」：只调整渲染位置，绝不改写用户真实坐标、不触发同步脏标记
     function recomputeOverviewTempOffsets() {
       const map = new Map();
@@ -4837,35 +4883,49 @@
       });
     }
 
-    function renderEdgesOnly() {
+    // 边渲染（2026-11-28 增量化）：静态边复用 <g> 元素，只更新变化的 d/stroke/label；
+    // 对齐参考线与临时连线每帧重建（量极小）。forceFull=true 时整层重建（结构变化后恢复规范顺序）。
+    const EDGE_DEFS_HTML = `
+      <marker id="arrow-active" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#4f46e5" />
+      </marker>
+      <marker id="arrow-done" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669" />
+      </marker>
+      <marker id="arrow-locked" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94a3b8" />
+      </marker>
+    `;
+    function ensureEdgeLayers(edgesSvg) {
+      let defsLayer = document.getElementById('edgeDefsLayer');
+      let staticLayer = document.getElementById('edgeStaticLayer');
+      let guidesLayer = document.getElementById('edgeGuidesLayer');
+      let wireLayer = document.getElementById('edgeWireLayer');
+      if (!defsLayer || !staticLayer || !guidesLayer || !wireLayer) {
+        edgesSvg.innerHTML = `<defs id="edgeDefsLayer">${EDGE_DEFS_HTML}</defs><g id="edgeStaticLayer"></g><g id="edgeGuidesLayer"></g><g id="edgeWireLayer"></g>`;
+        defsLayer = document.getElementById('edgeDefsLayer');
+        staticLayer = document.getElementById('edgeStaticLayer');
+        guidesLayer = document.getElementById('edgeGuidesLayer');
+        wireLayer = document.getElementById('edgeWireLayer');
+      }
+      return { defsLayer, staticLayer, guidesLayer, wireLayer };
+    }
+
+    function renderEdgesOnly(forceFull = false) {
       const edgesSvg = document.getElementById('edgesSvg');
       if (!edgesSvg) return;
       const filteredTasks = getFilteredTasks();
       const visibleTaskIds = new Set(filteredTasks.map(t => t.id));
       const visibleCategories = getVisibleCanvasCategories();
+      const layers = ensureEdgeLayers(edgesSvg);
+      const staticLayer = layers.staticLayer;
+      if (forceFull) staticLayer.innerHTML = '';
 
-      const defsHtml = `
-        <defs>
-          <marker id="arrow-active" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#4f46e5" />
-          </marker>
-          <marker id="arrow-done" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669" />
-          </marker>
-          <marker id="arrow-locked" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94a3b8" />
-          </marker>
-        </defs>
-      `;
-
-      let pathsHtml = '';
-
+      // —— 计算当前应存在的边集合（key -> 状态）——
+      const desired = new Map();
       filteredTasks.forEach(task => {
         const deps = getTaskDeps(task);
         const visibleDeps = deps.filter(depId => visibleTaskIds.has(depId));
-        // 端口锚点 = 标题行中线，与卡片总高度无关
-        const y2 = task.y + PORT_OFFSET_Y;
-        const x2 = task.x;
 
         if (visibleDeps.length === 0) {
           const cat = visibleCategories.find(c => c.id === task.categoryId);
@@ -4875,50 +4935,132 @@
             const smart = computeSmartEdgePath(hp.x, hp.y, HUB_W, HUB_H, tp.x, tp.y, NODE_W, getNodeHeight(task));
             const isHubDoing = task.status === 'in_progress';
             const isHubDone = task.status === 'done';
-            const strokeColor = isHubDone ? '#059669' : (isHubDoing ? '#4f46e5' : '#94a3b8');
-            const strokeW = isHubDoing ? '2.4' : (isHubDone ? '2.2' : '1.8');
-            const hubAnimClass = isHubDoing ? 'edge-animated' : '';
-            pathsHtml += `<path d="${smart.d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linecap="round" stroke-opacity="0.9" class="${hubAnimClass}" />`;
+            desired.set('hub:' + task.categoryId + ':' + task.id, {
+              kind: 'hub', d: smart.d,
+              stroke: isHubDone ? '#059669' : (isHubDoing ? '#4f46e5' : '#94a3b8'),
+              strokeW: isHubDoing ? '2.4' : (isHubDone ? '2.2' : '1.8'),
+              extraClass: isHubDoing ? 'edge-animated' : '',
+              marker: '', labelText: ''
+            });
           }
         } else {
           visibleDeps.forEach(depId => {
             const parent = getTaskById(depId);
             if (!parent) return;
-
             const pp = getTaskRenderPos(parent);
             const tp = getTaskRenderPos(task);
             const smart = computeSmartEdgePath(pp.x, pp.y, NODE_W, getNodeHeight(parent), tp.x, tp.y, NODE_W, getNodeHeight(task));
-            const d = smart.d;
-
-            // 细分脉络视觉规则：只看下游节点当前状态，不要求上游先完成
-            // 进行中 -> 靛蓝流动线；已完成 -> 绿色实线；待办 -> 干净的灰蓝实线
             let stroke = '#94a3b8';
             let marker = 'url(#arrow-locked)';
             let extraClass = '';
-
             let strokeW = '1.8';
             if (task.status === 'done') {
-              stroke = '#059669';
-              strokeW = '2.2';
-              marker = 'url(#arrow-done)';
+              stroke = '#059669'; strokeW = '2.2'; marker = 'url(#arrow-done)';
             } else if (task.status === 'in_progress') {
-              stroke = '#4f46e5';
-              strokeW = '2.4';
-              marker = 'url(#arrow-active)';
-              extraClass = 'edge-animated';
+              stroke = '#4f46e5'; strokeW = '2.4'; marker = 'url(#arrow-active)'; extraClass = 'edge-animated';
             }
-
-            const labelText = getEdgeLabel(depId, task.id);
-            let labelHtml = '';
-            if (labelText) {
-              const approxW = Math.max(44, Math.min(180, labelText.length * 11.5 + 16));
-              labelHtml = `<g style="pointer-events: auto; cursor: pointer;" onclick="event.stopPropagation(); openEdgeLabelModal('${depId}', '${task.id}')"><rect x="${smart.mx - approxW / 2}" y="${smart.my - 10}" width="${approxW}" height="20" rx="10" fill="#ffffff" stroke="${stroke}" stroke-width="1.2" /><text x="${smart.mx}" y="${smart.my + 3.5}" text-anchor="middle" fill="#334155" font-size="10.5" font-weight="600">${escapeHtml(labelText)}</text></g>`;
-            }
-
-            pathsHtml += `<g><path d="${d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${task.id}')"><title>点击或右键管理此连线/加标注（${escapeHtml(parent.title)} → ${escapeHtml(task.title)}）</title></path><path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeW}" stroke-linecap="round" class="${extraClass}" marker-end="${marker}" />${labelHtml}</g>`;
+            desired.set('t:' + depId + '->' + task.id, {
+              kind: 'task', d: smart.d, stroke, strokeW, extraClass, marker,
+              labelText: getEdgeLabel(depId, task.id) || '',
+              labelMx: smart.mx, labelMy: smart.my,
+              titleText: (parent.title || '') + ' → ' + (task.title || '')
+            });
           });
         }
       });
+
+      // —— 增量同步：先更新/删除已有 <g>，再补建缺失的 ——
+      const existing = staticLayer.children;
+      for (let i = existing.length - 1; i >= 0; i--) {
+        const g = existing[i];
+        const key = g.getAttribute('data-edge-key');
+        const st = desired.get(key);
+        if (!st) { g.remove(); continue; }
+        const lineP = st.kind === 'hub' ? g.firstElementChild : g.children[1];
+        if (g.__lastD !== st.d) {
+          if (st.kind === 'task') g.firstElementChild.setAttribute('d', st.d);
+          lineP.setAttribute('d', st.d);
+          g.__lastD = st.d;
+        }
+        if (g.__lastStroke !== st.stroke) { lineP.setAttribute('stroke', st.stroke); g.__lastStroke = st.stroke; }
+        if (g.__lastStrokeW !== st.strokeW) { lineP.setAttribute('stroke-width', st.strokeW); g.__lastStrokeW = st.strokeW; }
+        if (g.__lastClass !== st.extraClass) { lineP.setAttribute('class', st.extraClass); g.__lastClass = st.extraClass; }
+        if (st.kind === 'task' && g.__lastMarker !== st.marker) { lineP.setAttribute('marker-end', st.marker); g.__lastMarker = st.marker; }
+        // 标签
+        let labelG = st.kind === 'task' ? g.children[2] : null;
+        if (st.kind === 'task' && st.labelText) {
+          const approxW = Math.max(44, Math.min(180, st.labelText.length * 11.5 + 16));
+          if (labelG && g.__lastLabelText !== st.labelText) {
+            labelG.remove(); labelG = null;
+          }
+          if (!labelG) {
+            g.insertAdjacentHTML('beforeend', `<g style="pointer-events: auto; cursor: pointer;" onclick="event.stopPropagation(); openEdgeLabelModal('${key.slice(2).split('->')[0]}', '${key.slice(2).split('->')[1]}')"><rect x="${st.labelMx - approxW / 2}" y="${st.labelMy - 10}" width="${approxW}" height="20" rx="10" fill="#ffffff" stroke="${st.stroke}" stroke-width="1.2" /><text x="${st.labelMx}" y="${st.labelMy + 3.5}" text-anchor="middle" fill="#334155" font-size="10.5" font-weight="600">${escapeHtml(st.labelText)}</text></g>`);
+            labelG = g.children[2];
+            g.__lastLabelText = st.labelText;
+          } else {
+            const rect = labelG.firstElementChild, txt = labelG.lastElementChild;
+            if (g.__lastLabelMx !== st.labelMx || g.__lastLabelMy !== st.labelMy) {
+              rect.setAttribute('x', st.labelMx - approxW / 2);
+              rect.setAttribute('y', st.labelMy - 10);
+              txt.setAttribute('x', st.labelMx);
+              txt.setAttribute('y', st.labelMy + 3.5);
+              g.__lastLabelMx = st.labelMx; g.__lastLabelMy = st.labelMy;
+            }
+            if (g.__lastLabelStroke !== st.stroke) {
+              rect.setAttribute('stroke', st.stroke);
+              g.__lastLabelStroke = st.stroke;
+            }
+          }
+        } else if (labelG) {
+          labelG.remove();
+          g.__lastLabelText = '';
+        }
+        desired.delete(key);
+      }
+      if (desired.size > 0) {
+        let addHtml = '';
+        desired.forEach((st, key) => {
+          if (st.kind === 'hub') {
+            addHtml += `<g data-edge-key="${key}"><path d="${st.d}" fill="none" stroke="${st.stroke}" stroke-width="${st.strokeW}" stroke-linecap="round" stroke-opacity="0.9" class="${st.extraClass}" /></g>`;
+          } else {
+            const labelText = st.labelText;
+            let labelHtml = '';
+            if (labelText) {
+              const approxW = Math.max(44, Math.min(180, labelText.length * 11.5 + 16));
+              labelHtml = `<g style="pointer-events: auto; cursor: pointer;" onclick="event.stopPropagation(); openEdgeLabelModal('${key.slice(2).split('->')[0]}', '${key.slice(2).split('->')[1]}')"><rect x="${st.labelMx - approxW / 2}" y="${st.labelMy - 10}" width="${approxW}" height="20" rx="10" fill="#ffffff" stroke="${st.stroke}" stroke-width="1.2" /><text x="${st.labelMx}" y="${st.labelMy + 3.5}" text-anchor="middle" fill="#334155" font-size="10.5" font-weight="600">${escapeHtml(labelText)}</text></g>`;
+            }
+            const depId = key.slice(2).split('->')[0];
+            const taskId2 = key.slice(2).split('->')[1];
+            addHtml += `<g data-edge-key="${key}"><path d="${st.d}" class="edge-hit-path" onclick="event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${taskId2}')" oncontextmenu="event.preventDefault(); event.stopPropagation(); showEdgeContextMenu(event.clientX, event.clientY, '${depId}', '${taskId2}')"><title>点击或右键管理此连线/加标注（${escapeHtml(st.titleText)}）</title></path><path d="${st.d}" fill="none" stroke="${st.stroke}" stroke-width="${st.strokeW}" stroke-linecap="round" class="${st.extraClass}" marker-end="${st.marker}" />${labelHtml}</g>`;
+          }
+        });
+        staticLayer.insertAdjacentHTML('beforeend', addHtml);
+        // 初始化新建 <g> 的缓存字段，下一帧走增量路径
+        staticLayer.querySelectorAll('g[data-edge-key]').forEach(g => {
+          if (g.__lastD !== undefined) return;
+          const lineP = g.getAttribute('data-edge-key').startsWith('hub:') ? g.firstElementChild : g.children[1];
+          g.__lastD = lineP.getAttribute('d');
+          g.__lastStroke = lineP.getAttribute('stroke');
+          g.__lastStrokeW = lineP.getAttribute('stroke-width');
+          g.__lastClass = lineP.getAttribute('class') || '';
+          if (g.children.length > 1) g.__lastMarker = lineP.getAttribute('marker-end') || '';
+          const labelG = g.children[2];
+          g.__lastLabelText = labelG ? labelG.lastElementChild.textContent : '';
+        });
+      }
+
+      // —— 对齐参考线与临时连线：量小，每帧重建 ——
+      let guidesHtml = '';
+      if (Array.isArray(appState.alignGuides) && appState.alignGuides.length > 0) {
+        appState.alignGuides.forEach(g => {
+          if (g.type === 'v') {
+            guidesHtml += `<line x1="${g.pos}" y1="${g.start}" x2="${g.pos}" y2="${g.end}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
+          } else if (g.type === 'h') {
+            guidesHtml += `<line x1="${g.start}" y1="${g.pos}" x2="${g.end}" y2="${g.pos}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
+          }
+        });
+      }
+      layers.guidesLayer.innerHTML = guidesHtml;
 
       let wireHtml = '';
       if ((appState.wiringFromTaskId || appState.wiringFromHubCatId) && appState.wiringTempPathD) {
@@ -4990,17 +5132,7 @@
           </g>
         `;
       }
-      let guidesHtml = '';
-      if (Array.isArray(appState.alignGuides) && appState.alignGuides.length > 0) {
-        appState.alignGuides.forEach(g => {
-          if (g.type === 'v') {
-            guidesHtml += `<line x1="${g.pos}" y1="${g.start}" x2="${g.pos}" y2="${g.end}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
-          } else if (g.type === 'h') {
-            guidesHtml += `<line x1="${g.start}" y1="${g.pos}" x2="${g.end}" y2="${g.pos}" stroke="#6366f1" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.55" class="pointer-events-none" />`;
-          }
-        });
-      }
-      edgesSvg.innerHTML = defsHtml + pathsHtml + guidesHtml + wireHtml;
+      layers.wireLayer.innerHTML = wireHtml;
     }
 
     function renderGraphCanvas() {
@@ -5209,7 +5341,8 @@
       });
 
       nodesContainer.innerHTML = nodesHtml;
-      renderEdgesOnly();
+      // 全量重建画布后边层也整层重建，恢复规范绘制顺序；拖拽/连线热路径才走增量
+      renderEdgesOnly(true);
     }
 
     // Automatically computes "What should I do right now" from dependency graph + structured due date!
@@ -5821,7 +5954,8 @@
       appState.viewingArchivedCatId = null;
       appState.selectedCategoryId = catId;
       renderAll();
-      centerVisibleGraphInViewport(false);
+      // 只在内容完全跑出视野时平移拉回，绝不改写用户自己调好的缩放比例
+      ensureContentInView();
     }
 
     // 旧入口保留：统一走确认弹窗
@@ -5847,10 +5981,7 @@
     }
 
     function handleNodeClick(e, taskId) {
-      if (appState.suppressNextClick) {
-        appState.suppressNextClick = false;
-        return;
-      }
+      if (shouldSuppressClickAt(e && e.clientX, e && e.clientY)) return;
       if (e && e.shiftKey) {
         if (!appState.selectedTaskIds) appState.selectedTaskIds = new Set();
         if (appState.selectedTaskIds.has(taskId)) appState.selectedTaskIds.delete(taskId);
@@ -5866,9 +5997,41 @@
       selectTask(taskId);
     }
 
+    // ===== 选中态局部更新（2026-11-28 性能改造）：选中/取消不再全量重建画布 =====
+    // 选中态本质是纯 CSS 类切换 + 详情面板内容刷新；以前一次点击会重建侧栏+分区+全部卡片+全部连线+看板。
+    function applyTaskSelectionDom(prevId, nextId) {
+      if (prevId === nextId) return;
+      if (prevId) {
+        const prevEl = document.querySelector(`[data-node-id="${prevId}"]`);
+        if (prevEl) prevEl.classList.remove('node-selected', 'z-20');
+      }
+      if (nextId) {
+        const el = document.querySelector(`[data-node-id="${nextId}"]`);
+        if (el) el.classList.add('node-selected', 'z-20');
+      }
+      document.querySelectorAll('[data-board-task-id]').forEach(el => {
+        const id = el.getAttribute('data-board-task-id');
+        if (id === prevId && id !== nextId) el.classList.remove('quad-item-selected');
+        else if (id === nextId) el.classList.add('quad-item-selected');
+      });
+    }
+
+    // 拖拽/框选收尾后的补发 click 抑制：用「落点距离 + 时间窗」判定，替代 120ms 定时器。
+    // 慢机器上 click 晚于 120ms 到达会误选；现在 350ms 内且落在拖拽终点 12px 内才算误触。
+    function shouldSuppressClickAt(x, y) {
+      const info = appState.lastDragEndInfo;
+      if (!info) return false;
+      if (Date.now() - info.t > 350) return false;
+      if (typeof x !== 'number' || typeof y !== 'number' || info.x == null || info.y == null) return true;
+      const dx = x - info.x, dy = y - info.y;
+      return (dx * dx + dy * dy) <= 144;
+    }
+
     function selectTask(taskId) {
+      const prevId = appState.selectedTaskId;
       appState.selectedTaskId = taskId;
-      renderAll();
+      applyTaskSelectionDom(prevId, taskId);
+      renderInspector();
     }
 
     function closeInspector() {
@@ -5879,20 +6042,25 @@
 
     function toggleInspectorDrawer() {
       appState.inspectorOpen = !appState.inspectorOpen;
-      renderAll();
+      renderInspector();
     }
 
     function deselectTask() {
+      const prevId = appState.selectedTaskId;
       appState.selectedTaskId = null;
-      if (appState.selectedTaskIds) appState.selectedTaskIds.clear();
+      if (appState.selectedTaskIds && appState.selectedTaskIds.size > 0) {
+        appState.selectedTaskIds.clear();
+        updateMultiSelectUI();
+      }
       appState.inspectorOpen = false;
-      renderAll();
+      applyTaskSelectionDom(prevId, null);
+      renderInspector();
     }
 
     // 点击画布空白处取消选中。平移画布时浏览器也会补发 click，
     // 用「按下 → 松开位移 > 5px」把这种拖拽排除掉，避免一挪动画布就掉选中。
     function handleCanvasBlankClick(e) {
-      if (appState.suppressNextClick) return;
+      if (shouldSuppressClickAt(e && e.clientX, e && e.clientY)) return;
       const t = e.target;
       if (t && t.closest && t.closest('[data-node-id], [data-hub-id], .zone-drag-handle, .port-dot, .edge-hit-path, button, input, select, textarea, label, a')) return;
       const s = appState.canvasClickStart;
@@ -6041,9 +6209,82 @@
       renderRecentTasksList();
     }
 
+    // =========================================================================
+    // 撤销/重做（2026-11-28 第二批）：操作级轻量快照栈（Ctrl+Z / Ctrl+Shift+Z）
+    // 覆盖：状态切换 / 连线增删 / 卡片与课题块拖拽移动 / 星标开关。
+    // 删除类操作不进此栈 —— 回收站本身就是删除的「撤销」入口（带原坐标恢复）。
+    // =========================================================================
+    const UNDO_LIMIT = 40;
+    const __undoStack = [];
+    const __redoStack = [];
+    let __undoApplying = false;
+
+    function recordUndo(entry) {
+      if (__undoApplying) return;
+      entry.label = entry.label || '操作';
+      __undoStack.push(entry);
+      if (__undoStack.length > UNDO_LIMIT) __undoStack.shift();
+      __redoStack.length = 0;
+    }
+
+    function applyUndoPatches(patches) {
+      patches.forEach(p => {
+        if (p.type === 'status') {
+          const t = getTaskById(p.id);
+          if (t) t.status = p.value;
+        } else if (p.type === 'field') {
+          const t = getTaskById(p.id);
+          if (t) t[p.field] = p.value;
+        } else if (p.type === 'deps') {
+          const t = getTaskById(p.id);
+          if (t) { t.deps = p.value.slice(); t.parentId = t.deps[0] || null; }
+        } else if (p.type === 'pos') {
+          p.items.forEach(it => {
+            const t = getTaskById(it.id);
+            if (t) { t.x = it.x; t.y = it.y; }
+          });
+        } else if (p.type === 'hubpos') {
+          const c = getCategoryById(p.id);
+          if (c) { c.hubX = p.x; c.hubY = p.y; }
+        }
+      });
+      bumpDataVersion();
+    }
+
+    function doUndo() {
+      if (__undoApplying) return;
+      if (__undoStack.length === 0) { showToast('没有可撤销的操作'); return; }
+      __undoApplying = true;
+      const entry = __undoStack.pop();
+      applyUndoPatches(entry.before);
+      __redoStack.push(entry);
+      __undoApplying = false;
+      saveState();
+      renderAll();
+      showToast(`↩ 已撤销：${entry.label}`);
+    }
+
+    function doRedo() {
+      if (__undoApplying) return;
+      if (__redoStack.length === 0) { showToast('没有可重做的操作'); return; }
+      __undoApplying = true;
+      const entry = __redoStack.pop();
+      applyUndoPatches(entry.after);
+      __undoStack.push(entry);
+      __undoApplying = false;
+      saveState();
+      renderAll();
+      showToast(`↪ 已重做：${entry.label}`);
+    }
+
     function toggleRecentQuick(taskId) {
       const task = getTaskById(taskId);
       if (!task) return;
+      recordUndo({
+        label: task.isRecent ? '取消星标' : '加星标',
+        before: [{ type: 'field', id: taskId, field: 'isRecent', value: Boolean(task.isRecent) }],
+        after: [{ type: 'field', id: taskId, field: 'isRecent', value: !task.isRecent }]
+      });
       task.isRecent = !task.isRecent;
       saveState();
       renderAll();
@@ -6070,6 +6311,11 @@
       const task = getTaskById(taskId);
       if (!task) return;
       if (mode === 'recent') {
+        recordUndo({
+          label: '加星标',
+          before: [{ type: 'field', id: taskId, field: 'isRecent', value: Boolean(task.isRecent) }],
+          after: [{ type: 'field', id: taskId, field: 'isRecent', value: true }]
+        });
         task.isRecent = true;
         saveState();
         renderAll();
@@ -6082,6 +6328,11 @@
         return;
       }
       const nextStatus = (mode === 'queue' || mode === 'todo') ? 'todo' : 'in_progress';
+      recordUndo({
+        label: '切换状态',
+        before: [{ type: 'status', id: taskId, value: task.status }],
+        after: [{ type: 'status', id: taskId, value: nextStatus }]
+      });
       if (task.status === 'done') restoreSubtasksFromUndo(task);
       task.status = nextStatus;
       saveState();
@@ -6113,6 +6364,7 @@
     function toggleTaskComplete(taskId) {
       const task = getTaskById(taskId);
       if (!task) return;
+      const beforeStatus = task.status;
       if (task.status === 'done') {
         task.status = 'in_progress';
         restoreSubtasksFromUndo(task);
@@ -6130,6 +6382,11 @@
           showToast('✓ 工作已完成！');
         }
       }
+      recordUndo({
+        label: '切换状态',
+        before: [{ type: 'status', id: taskId, value: beforeStatus }],
+        after: [{ type: 'status', id: taskId, value: task.status }]
+      });
       saveState();
       renderAll();
     }
@@ -6236,8 +6493,14 @@
         }
         rawDeps.push(depId);
       }
+      const beforeDeps = Array.isArray(task.deps) ? task.deps.slice() : [];
       task.deps = rawDeps;
       task.parentId = rawDeps[0] || null;
+      recordUndo({
+        label: idx >= 0 ? '移除连线' : '添加连线',
+        before: [{ type: 'deps', id: taskId, value: beforeDeps }],
+        after: [{ type: 'deps', id: taskId, value: task.deps.slice() }]
+      });
       saveState();
       renderAll();
       showToast(idx >= 0 ? '已移除该前置依赖' : '🔗 已添加多前置汇聚依赖');
@@ -6263,6 +6526,8 @@
       appState.hasMovedDuringDrag = false;
       appState.dragStartMouseX = clientX;
       appState.dragStartMouseY = clientY;
+      invalidateVpRectCache();
+      getCachedVpRect();
 
       if (taskId) {
         const task = getTaskById(taskId);
@@ -6287,20 +6552,26 @@
         appState.dragStartItemY = cat ? cat.hubY : 0;
       }
 
+      // 撤销快照：记录拖拽起始位置（松手时若真的移动了，就与最终位置配对入栈）
+      appState.dragUndoBefore = null;
+      if (taskId) {
+        if (appState.draggingMultiStarts && appState.draggingMultiStarts.length > 0) {
+          appState.dragUndoBefore = { kind: 'pos', items: appState.draggingMultiStarts.map(m => ({ id: m.task.id, x: m.x, y: m.y })) };
+        } else {
+          appState.dragUndoBefore = { kind: 'pos', items: [{ id: taskId, x: appState.dragStartItemX, y: appState.dragStartItemY }] };
+        }
+      } else if (hubId) {
+        appState.dragUndoBefore = { kind: 'hubpos', id: hubId, x: appState.dragStartItemX, y: appState.dragStartItemY };
+      }
+
       if (el && el.classList) {
         el.classList.add('node-dragging');
       }
 
       if (taskId && appState.selectedTaskId !== taskId) {
+        const prevId = appState.selectedTaskId;
         appState.selectedTaskId = taskId;
-        document.querySelectorAll('[data-node-id]').forEach(nodeEl => {
-          if (nodeEl.getAttribute('data-node-id') === taskId) {
-            nodeEl.classList.add('node-selected', 'z-20');
-          } else {
-            nodeEl.classList.remove('node-selected', 'z-20');
-          }
-        });
-        renderRecentTasksList();
+        applyTaskSelectionDom(prevId, taskId);
         renderInspector();
       }
     }
@@ -6359,6 +6630,13 @@
         hubEl: document.querySelector(`[data-hub-id="${catId}"]`),
         tasks: catTasks.map(t => ({ task: t, x: t.x, y: t.y, el: document.querySelector(`[data-node-id="${t.id}"]`) }))
       };
+      // 撤销快照：课题块整体平移前，枢纽与全部成员卡片的起始位置
+      appState.zoneUndoBefore = {
+        id: catId,
+        hubX: cat.hubX,
+        hubY: cat.hubY,
+        items: catTasks.map(t => ({ id: t.id, x: t.x, y: t.y }))
+      };
     }
 
     function startPanCanvas(e) {
@@ -6369,6 +6647,8 @@
       const vp = document.getElementById('canvasViewport');
       if (!vp) return;
       appState.canvasClickStart = { x: e.clientX, y: e.clientY };
+      invalidateVpRectCache();
+      getCachedVpRect();
 
       // Shift + 拖空白 = 框选多张卡片
       if (e.shiftKey && e.button === 0) {
@@ -6401,11 +6681,27 @@
     }
 
     function startTouchPanCanvas(e) {
+      const vp = document.getElementById('canvasViewport');
+      if (!vp) return;
+      // 双指捏合缩放（2026-11-28 触摸补全）：以两指中点为锚，画布内容跟随手指张开/收拢
+      if (e.touches && e.touches.length === 2) {
+        e.preventDefault();
+        const a = e.touches[0], b = e.touches[1];
+        appState.pinchStart = {
+          dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+          zoom: appState.zoom || 1,
+          midX: (a.clientX + b.clientX) / 2,
+          midY: (a.clientY + b.clientY) / 2,
+          panX: appState.panOffsetX || 0,
+          panY: appState.panOffsetY || 0
+        };
+        appState.isPinchZooming = true;
+        appState.isPanningCanvas = false;
+        return;
+      }
       if (!e.touches || e.touches.length !== 1) return;
       if (appState.draggingNodeId || appState.draggingHubId) return;
       if (e.target && e.target.closest && e.target.closest('[data-node-id], [data-hub-id], button, input, select, textarea, label')) return;
-      const vp = document.getElementById('canvasViewport');
-      if (!vp) return;
       const t = e.touches[0];
       appState.canvasClickStart = { x: t.clientX, y: t.clientY };
       appState.isPanningCanvas = true;
@@ -6415,11 +6711,36 @@
       appState.panScrollTop = appState.panOffsetY || 0;
     }
 
+    // 捏合缩放的 move/end 处理：挂在 viewport 上且 passive:false，才能阻止浏览器自带缩放
+    (() => {
+      const vp = document.getElementById('canvasViewport');
+      if (!vp || !vp.addEventListener) return;
+      vp.addEventListener('touchmove', (e) => {
+        if (!appState.isPinchZooming || !appState.pinchStart) return;
+        if (!e.touches || e.touches.length !== 2) return;
+        if (e.cancelable) e.preventDefault();
+        const a = e.touches[0], b = e.touches[1];
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+        const raw = appState.pinchStart.zoom * (dist / appState.pinchStart.dist);
+        const newZ = Math.max(0.25, Math.min(1.5, Math.round(raw * 20) / 20));
+        if (newZ === appState.zoom) return;
+        const midX = (a.clientX + b.clientX) / 2;
+        const midY = (a.clientY + b.clientY) / 2;
+        const ratio = newZ / appState.pinchStart.zoom;
+        appState.panOffsetX = Math.round(midX - (midX - appState.pinchStart.panX) * ratio);
+        appState.panOffsetY = Math.round(midY - (midY - appState.pinchStart.panY) * ratio);
+        appState.zoom = newZ;
+        applyStageTransform();
+      }, { passive: false });
+      const endPinch = () => { appState.isPinchZooming = false; appState.pinchStart = null; };
+      vp.addEventListener('touchend', endPinch, { passive: true });
+      vp.addEventListener('touchcancel', endPinch, { passive: true });
+      window.addEventListener('blur', endPinch);
+    })();
+
     // 拖到视口边缘时画布自动跟随：否则卡片会滑到侧栏底下"消失"，看起来像拖丢了
     function autoPanWhileDragging(clientX, clientY) {
-      const vp = document.getElementById('canvasViewport');
-      if (!vp) return;
-      const r = vp.getBoundingClientRect();
+      const r = getCachedVpRect();
       if (!r || !r.width || !r.height) return;
       const margin = 56;
       // 用 left+width 自己算边界：不依赖 Rect 是否带 right/bottom（测试替身常常没有）
@@ -6455,12 +6776,23 @@
       applyStageTransform();
     }
 
+    // 视口矩形缓存（2026-11-28）：拖拽/平移会话期间 viewport 元素的屏幕位置不变（变的只是 stage transform），
+    // 每次 move 都 getBoundingClientRect 是强制同步布局的主要来源，改为会话开始时取一次
+    function getCachedVpRect() {
+      if (appState._dragVpRect) return appState._dragVpRect;
+      const vpEl = document.getElementById('canvasViewport');
+      appState._dragVpRect = vpEl ? vpEl.getBoundingClientRect() : null;
+      return appState._dragVpRect;
+    }
+    function invalidateVpRectCache() {
+      appState._dragVpRect = null;
+    }
+
     function handlePointerMoveCoords(clientX, clientY) {
       if (appState.draggingNodeId || appState.draggingHubId) {
         // 指针拖出画布时把「有效位置」压回画布边缘：卡片始终可见，画布继续自动平移。
         // 否则鼠标一进侧栏，卡片就被 overflow:hidden 裁掉，看起来像拖丢了。
-        const vpEl = document.getElementById('canvasViewport');
-        const vpRect = vpEl ? vpEl.getBoundingClientRect() : null;
+        const vpRect = getCachedVpRect();
         let px = clientX;
         let py = clientY;
         if (vpRect && vpRect.width && vpRect.height) {
@@ -6629,23 +6961,73 @@
       }
     }
 
+    // rAF 合帧（2026-11-28）：mousemove/touchmove 只记录最新坐标，每帧统一处理一次。
+    // 高频外设一帧可发多次 move，逐次同步处理会放大布局读写与连线重算成本。
+    let __pendingPointer = null;
+    let __pendingPointerFrame = 0;
+    function schedulePointerMove(x, y) {
+      __pendingPointer = { x, y };
+      if (__pendingPointerFrame) return;
+      if (typeof requestAnimationFrame !== 'function') {
+        const p = __pendingPointer;
+        __pendingPointer = null;
+        if (p) handlePointerMoveCoords(p.x, p.y);
+        return;
+      }
+      __pendingPointerFrame = requestAnimationFrame(() => {
+        __pendingPointerFrame = 0;
+        const p = __pendingPointer;
+        __pendingPointer = null;
+        if (p) handlePointerMoveCoords(p.x, p.y);
+      });
+    }
+    function flushPendingPointerMove() {
+      if (__pendingPointerFrame) {
+        cancelAnimationFrame(__pendingPointerFrame);
+        __pendingPointerFrame = 0;
+      }
+      const p = __pendingPointer;
+      __pendingPointer = null;
+      if (p) handlePointerMoveCoords(p.x, p.y);
+    }
+
     window.addEventListener('mousemove', (e) => {
       window.__lastDragAltKey = Boolean(e.altKey);
-      handlePointerMoveCoords(e.clientX, e.clientY);
+      schedulePointerMove(e.clientX, e.clientY);
     });
 
     window.addEventListener('touchmove', (e) => {
       if ((appState.draggingNodeId || appState.draggingHubId || appState.isPanningCanvas) && e.touches && e.touches.length === 1) {
-        handlePointerMoveCoords(e.touches[0].clientX, e.touches[0].clientY);
+        schedulePointerMove(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: true });
 
-    function finishDragOrPan() {
+    function finishDragOrPan(e) {
+      // 松手前把 rAF 队列里挂起的最后一步 move 同步落账，保证松手瞬间的坐标就是最终坐标
+      flushPendingPointerMove();
+      invalidateVpRectCache();
       if (appState.draggingZoneCatId) {
         const moved = appState.hasMovedDuringDrag;
+        const zoneBefore = appState.zoneUndoBefore;
+        appState.zoneUndoBefore = null;
         appState.draggingZoneCatId = null;
         appState.draggingZoneStarts = null;
         appState.hasMovedDuringDrag = false;
+        if (moved && zoneBefore) {
+          const catNow = getCategoryById(zoneBefore.id);
+          const afterItems = zoneBefore.items.map(it => {
+            const t = getTaskById(it.id);
+            return t ? { id: it.id, x: t.x, y: t.y } : null;
+          }).filter(Boolean);
+          const patchesBefore = [{ type: 'hubpos', id: zoneBefore.id, x: zoneBefore.hubX, y: zoneBefore.hubY }];
+          const patchesAfter = [];
+          if (catNow) patchesAfter.push({ type: 'hubpos', id: zoneBefore.id, x: catNow.hubX, y: catNow.hubY });
+          if (afterItems.length > 0) {
+            patchesBefore.push({ type: 'pos', items: zoneBefore.items });
+            patchesAfter.push({ type: 'pos', items: afterItems });
+          }
+          recordUndo({ label: '移动课题块', before: patchesBefore, after: patchesAfter });
+        }
         if (moved) {
           ensureCanvasStageSize();
           saveState();
@@ -6699,8 +7081,38 @@
         appState.alignGuides = [];
 
         if (moved) {
-          appState.suppressNextClick = true;
-          setTimeout(() => { appState.suppressNextClick = false; }, 120);
+          const endX = e && typeof e.clientX === 'number' ? e.clientX : (e && e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : null);
+          const endY = e && typeof e.clientY === 'number' ? e.clientY : (e && e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : null);
+          appState.lastDragEndInfo = { x: endX, y: endY, t: Date.now() };
+          // 撤销快照：拖拽起始位置 → 松手时的最终位置
+          const dragBefore = appState.dragUndoBefore;
+          if (dragBefore && dragBefore.kind === 'pos') {
+            const afterItems = dragBefore.items.map(it => {
+              const t = getTaskById(it.id);
+              return t ? { id: it.id, x: t.x, y: t.y } : null;
+            }).filter(Boolean);
+            const changed = afterItems.length > 0 && afterItems.some((it, i) => {
+              const b = dragBefore.items[i];
+              return !b || it.x !== b.x || it.y !== b.y;
+            });
+            if (changed) {
+              recordUndo({
+                label: dragBefore.items.length > 1 ? `批量移动 ${dragBefore.items.length} 张卡片` : '移动卡片',
+                before: [{ type: 'pos', items: dragBefore.items }],
+                after: [{ type: 'pos', items: afterItems }]
+              });
+            }
+          } else if (dragBefore && dragBefore.kind === 'hubpos') {
+            const catNow = getCategoryById(dragBefore.id);
+            if (catNow && (catNow.hubX !== dragBefore.x || catNow.hubY !== dragBefore.y)) {
+              recordUndo({
+                label: '移动课题块',
+                before: [{ type: 'hubpos', id: dragBefore.id, x: dragBefore.x, y: dragBefore.y }],
+                after: [{ type: 'hubpos', id: dragBefore.id, x: catNow.hubX, y: catNow.hubY }]
+              });
+            }
+          }
+          appState.dragUndoBefore = null;
           ensureCanvasStageSize();
           saveState();
           if (appState.selectedCategoryId === 'all' && appState.data.categories.length >= 2) {
@@ -6724,8 +7136,91 @@
     window.addEventListener('touchcancel', finishDragOrPan);
     window.addEventListener('blur', finishDragOrPan);
 
+    // ===== 弹窗栈（2026-11-28）：Esc 按真实打开顺序关闭，替代硬编码数组；并做焦点陷阱 =====
+    // 用 MutationObserver 监听各弹窗容器的 class 变化自动维护栈，不侵入每个 open/close 函数
+    const MODAL_CLOSE_FNS = {
+      confirmActionModal: () => closeConfirmModal(),
+      newTaskModal: () => closeNewTaskModal(),
+      categoryModal: () => closeCategoryModal(),
+      trashModal: () => closeTrashModal(),
+      archiveModal: () => closeArchiveModal(),
+      ghSyncModal: () => closeGitHubSyncModal(),
+      countdownModal: () => closeCountdownModal(),
+      edgeLabelModal: () => closeEdgeLabelModal(),
+      helpGuideModal: () => closeHelpGuideModal(),
+      deleteCatModal: () => closeDeleteCatModal(),
+      memoModal: () => closeMemoModal()
+    };
+    const MODAL_IDS = Object.keys(MODAL_CLOSE_FNS);
+    function closeTopModal() {
+      const stack = appState.modalStack || (appState.modalStack = []);
+      for (let i = stack.length - 1; i >= 0; i--) {
+        const el = document.getElementById(stack[i]);
+        if (el && !el.classList.contains('hidden')) {
+          const fn = MODAL_CLOSE_FNS[stack[i]];
+          if (typeof fn === 'function') fn();
+          else el.classList.add('hidden');
+          return true;
+        }
+      }
+      return false;
+    }
+    function initModalStackObserver() {
+      appState.modalStack = [];
+      const sync = () => {
+        MODAL_IDS.forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          const visible = !el.classList.contains('hidden');
+          const stack = appState.modalStack;
+          const idx = stack.indexOf(id);
+          if (visible && idx === -1) stack.push(id);
+          if (!visible && idx !== -1) stack.splice(idx, 1);
+        });
+      };
+      const obs = new MutationObserver(sync);
+      MODAL_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+      });
+      sync();
+    }
+    // 焦点陷阱：顶层弹窗打开时 Tab 只在弹窗内循环，不再穿透到背景控件
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const stack = appState.modalStack || [];
+      for (let i = stack.length - 1; i >= 0; i--) {
+        const el = document.getElementById(stack[i]);
+        if (el && !el.classList.contains('hidden')) {
+          const focusables = Array.from(el.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+            .filter(x => !x.disabled && x.offsetParent !== null);
+          if (!focusables.length) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (!el.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); return; }
+          if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); return; }
+          return;
+        }
+      }
+    });
+    // 弹窗都写在 <script> 之前的静态 HTML 里，脚本执行到此处 DOM 已就绪，直接初始化（不依赖 onload 时序）
+    try { initModalStackObserver(); } catch (e) {}
+
     // Keyboard shortcuts (Ctrl+Enter 新建记录, Esc 关闭弹窗；Tab 交还浏览器)
     window.addEventListener('keydown', (e) => {
+      // IME 组合态按键（中文输入法取消候选词的 Esc / keyCode 229）不触发任何全局快捷键
+      if (e.isComposing || e.keyCode === 229) return;
+      // 撤销 / 重做：输入框内交给原生文本撤销
+      const inEditable = e.target && e.target.closest && e.target.closest('input, textarea, select');
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        if (!inEditable) { e.preventDefault(); doUndo(); }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) {
+        if (!inEditable) { e.preventDefault(); doRedo(); }
+        return;
+      }
       if (e.key === 'Escape') {
         if (appState.wiringFromTaskId || appState.wiringFromHubCatId) {
           if (typeof appState.wiringCleanup === 'function') appState.wiringCleanup();
@@ -6740,25 +7235,8 @@
         }
         if (appState.ctxMenuOpen) { hideContextMenu(); return; }
         if (appState.stageQuickTaskId) { hideStageQuickMenu(); return; }
-        const modalStack = [
-          ['edgeLabelModal', closeEdgeLabelModal],
-          ['confirmActionModal', closeConfirmModal],
-          ['countdownModal', closeCountdownModal],
-          ['helpGuideModal', closeHelpGuideModal],
-          ['ghSyncModal', closeGitHubSyncModal],
-          ['deleteCatModal', closeDeleteCatModal],
-          ['archiveModal', closeArchiveModal],
-          ['trashModal', closeTrashModal],
-          ['categoryModal', closeCategoryModal],
-          ['newTaskModal', closeNewTaskModal]
-        ];
-        for (const [id, closeFn] of modalStack) {
-          const el = document.getElementById(id);
-          if (el && !el.classList.contains('hidden')) {
-            closeFn();
-            return;
-          }
-        }
+        // 按弹窗真实层叠顺序关闭（栈由 initModalStackObserver 自动维护）
+        if (closeTopModal()) return;
         if (appState.inspectorOpen || appState.selectedTaskId || (appState.selectedTaskIds && appState.selectedTaskIds.size)) {
           deselectTask();
         }
@@ -8066,7 +8544,7 @@
       `;
     }
 
-    function addMemoItem(text, color = 'amber') {
+    function addMemoItem(text, color = 'amber', pinned = false) {
       const clean = String(text || '').trim();
       if (!clean) return null;
       if (!Array.isArray(appState.data.memos)) appState.data.memos = [];
@@ -8075,7 +8553,7 @@
         id: 'memo-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         text: clean,
         color: MEMO_STYLES[color] ? color : 'amber',
-        pinned: false,
+        pinned: Boolean(pinned),
         createdAt: now,
         updatedAt: now
       };
@@ -8093,10 +8571,11 @@
       showToast('📝 已记入暖黄便签（置顶显示，同步至便签墙）');
     }
 
-    function setNewMemoColor(color) {
+    // ===== 便签新增弹窗（2026-11-28 交互统一）：与倒计日/新建任务一致的「点新增 → 弹窗填写」模式 =====
+    function setMemoModalColor(color) {
       appState.newMemoColor = MEMO_STYLES[color] ? color : 'amber';
       ['amber', 'emerald', 'violet', 'rose'].forEach(c => {
-        const b = document.getElementById('memoColorBtn_' + c);
+        const b = document.getElementById('memoModalColorBtn_' + c);
         if (!b) return;
         b.classList.toggle('ring-2', c === appState.newMemoColor);
         b.classList.toggle('ring-amber-300', c === appState.newMemoColor && c === 'amber');
@@ -8106,11 +8585,35 @@
       });
     }
 
-    function submitMemoFromPage() {
-      const inp = document.getElementById('memoPageInput');
-      if (!inp || !inp.value.trim()) { showToast('请先写点内容再保存'); return; }
-      addMemoItem(inp.value.trim(), appState.newMemoColor || 'amber');
-      inp.value = '';
+    function openMemoModal() {
+      const m = document.getElementById('memoModal');
+      if (!m) return;
+      const title = document.getElementById('memoModalTitle');
+      if (title) title.textContent = '📝 新增便签';
+      const ta = document.getElementById('inputMemoText');
+      if (ta) ta.value = '';
+      const pin = document.getElementById('inputMemoPinned');
+      if (pin) pin.checked = false;
+      setMemoModalColor('amber');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      setTimeout(() => { if (ta) ta.focus(); }, 20);
+    }
+
+    function closeMemoModal() {
+      const m = document.getElementById('memoModal');
+      if (!m) return;
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function submitMemoModal() {
+      const ta = document.getElementById('inputMemoText');
+      const text = ta ? ta.value.trim() : '';
+      if (!text) { showToast('先写点内容再保存'); return; }
+      const pin = document.getElementById('inputMemoPinned');
+      addMemoItem(text, appState.newMemoColor || 'amber', pin ? pin.checked : false);
+      closeMemoModal();
       showToast('📝 已贴上一张新便签');
     }
 
@@ -9107,6 +9610,7 @@
     }
 
     async function pullFromGitHub(silent = false) {
+      if (appState.readOnlyMode) return 'readonly';
       if (!isGitHubSyncEnabled()) return 'disabled';
       if (appState.ghSyncing) return 'busy';
       const cfg = appState.ghConfig;
@@ -9206,6 +9710,7 @@
     }
 
     async function pushToGitHub(forceOverwrite = false, silent = false) {
+      if (appState.readOnlyMode) return 'readonly';
       if (!isGitHubSyncEnabled()) return 'disabled';
       if (appState.ghSyncing) {
         appState.ghDirty = true;
@@ -9919,6 +10424,66 @@
       }
     });
 
+    // ===== 多标签互斥（2026-11-28）：同一浏览器同一工作区只允许一个标签页写入 =====
+    // 原理：Web Locks API 的 ifAvailable 竞争 'lly_workspace_write_lock'；
+    // 拿不到的标签页进入只读预览并每 8 秒重试，另一页关闭后自动接管并读回最新数据。
+    // 不支持 Web Locks 的环境（旧浏览器）保持原有行为不做限制。
+    function showReadOnlyBanner(show) {
+      const el = document.getElementById('readOnlyBanner');
+      if (el) el.classList.toggle('hidden', !show);
+    }
+    function enterReadOnlyMode() {
+      if (appState.readOnlyMode) return;
+      appState.readOnlyMode = true;
+      showReadOnlyBanner(true);
+      setSaveStatus('readonly');
+      showToast('👁 检测到本工作区已在其他标签页打开，此处切换为只读预览');
+    }
+    function exitReadOnlyMode() {
+      if (!appState.readOnlyMode) return;
+      appState.readOnlyMode = false;
+      showReadOnlyBanner(false);
+      // 只读期间另一标签页可能改过数据，读回最新缓存再渲染
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = migrateDataSchema(JSON.parse(raw));
+          if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.tasks)) {
+            appState.data = parsed;
+            bumpDataVersion();
+            if (appState.selectedTaskId && !getTaskById(appState.selectedTaskId)) {
+              const active = getActiveTasks();
+              appState.selectedTaskId = active.length ? active[0].id : null;
+            }
+            renderAll();
+          }
+        }
+      } catch (e) {}
+      setSaveStatus('local');
+      showToast('✓ 本页已恢复为可编辑模式');
+    }
+    function tryAcquireWorkspaceLock() {
+      if (!navigator.locks || !navigator.locks.request) return;
+      navigator.locks.request('lly_workspace_write_lock', { ifAvailable: true }, (lock) => {
+        if (!lock) {
+          enterReadOnlyMode();
+          return new Promise(() => {});
+        }
+        const wasReadOnly = Boolean(appState.readOnlyMode);
+        appState.readOnlyMode = false;
+        showReadOnlyBanner(false);
+        if (wasReadOnly) exitReadOnlyMode();
+        return new Promise(() => {}); // 持锁直到本页关闭
+      }).catch(() => {});
+    }
+    function startWorkspaceLockWatch() {
+      if (!navigator.locks || !navigator.locks.request) return;
+      tryAcquireWorkspaceLock();
+      setInterval(() => {
+        if (appState.readOnlyMode) tryAcquireWorkspaceLock();
+      }, 8000);
+    }
+
     function flushPendingEditsBeforeLeave() {
       if (_liveFieldTimer) {
         clearTimeout(_liveFieldTimer);
@@ -9995,6 +10560,7 @@
     window.addEventListener('blur', hideContextMenu);
     window.addEventListener('resize', () => {
       hideContextMenu();
+      invalidateVpRectCache();
       if (window.innerWidth < 768 && (appState.currentView === 'graph' || appState.currentView === 'split')) {
         setAppView('recent');
         return;
@@ -10021,6 +10587,7 @@
         updateSyncButtonsUI();
       }
       const vp = document.getElementById('canvasViewport');
+      startWorkspaceLockWatch();
       if (vp && vp.addEventListener) {
         vp.addEventListener('wheel', (e) => {
           // Ctrl/⌘ + 滚轮 = 缩放；普通滚轮 = 平移画布（画布用 transform 平移，不能靠原生滚动）
