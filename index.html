@@ -443,6 +443,8 @@
     .z-\[100\] { z-index: 100; }
     .z-\[90\] { z-index: 90; }
     .z-\[80\] { z-index: 80; }
+    .z-\[60\] { z-index: 60; }
+    .top-24 { top: 6rem; }
     .min-w-\[190px\] { min-width: 190px; }
     .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
     .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
@@ -2444,12 +2446,7 @@
           // 空工作区（删光了所有课题）也是合法状态，必须原样恢复；
           // 以前 categories.length===0 时整体丢弃已存数据回退演示种子，导致「删光后刷新」演示数据复活。
           if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.tasks)) {
-            appState.data = parsed;
-            bumpDataVersion();
-            const activeTasks = getActiveTasks();
-            if (activeTasks.length > 0 && !getTaskById(appState.selectedTaskId)) {
-              appState.selectedTaskId = activeTasks[0].id;
-            }
+            adoptWorkspaceData(parsed);
           }
         }
       } catch (e) {
@@ -3974,6 +3971,19 @@
     let __depAdjStamp = { v: -1, ref: null, len: -1 };
     function bumpDataVersion() {
       __dataVersion++;
+    }
+    // 统一的「整份工作区收养」入口（2026-11-28 补丁）：云端拉取/本地文件读回/.bak 恢复/导入/三方合并
+    // 替换 appState.data 后必须走这里——否则 getFilteredTasks 缓存与深度图不失效，
+    // 卡片总数不变的内容变更（标题/状态/备注）会继续显示拉取前的旧数据；撤销栈也一并清空防串台。
+    function adoptWorkspaceData(nextData) {
+      appState.data = nextData;
+      bumpDataVersion();
+      __undoStack.length = 0;
+      __redoStack.length = 0;
+      if (appState.selectedTaskId && !getTaskById(appState.selectedTaskId)) {
+        const active = getActiveTasks();
+        appState.selectedTaskId = active.length ? active[0].id : null;
+      }
     }
     function dataStamp() {
       const tasks = appState.data.tasks || [];
@@ -5950,12 +5960,53 @@
     }
 
     // Interactive handlers
+    // 切到单个课题：把该课题（枢纽 + 全部可见卡片）的包围盒重心居中到视口（2026-11-28 按用户反馈恢复）。
+    // 当前缩放装不下时自动缩小到刚好放下（clamp 0.25–1.2）；装得下则完全保留用户的缩放比例——
+    // 这样「25% 总览切课题」不会再被拉走缩放，而「100% 只看到一个角」会自动缩小到完整呈现。
+    function centerCategoryInViewport(catId) {
+      const vp = document.getElementById('canvasViewport');
+      const cat = getCategoryById(catId);
+      if (!vp || !cat) return;
+      const hp = getHubRenderPos(cat);
+      let minX = hp.x, minY = hp.y, maxX = hp.x + HUB_W, maxY = hp.y + HUB_H;
+      getFilteredTasks().forEach(t => {
+        if (t.categoryId !== catId) return;
+        const p = getTaskRenderPos(t);
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x + NODE_W);
+        maxY = Math.max(maxY, p.y + getNodeHeight(t));
+      });
+      const worldW = Math.max(1, maxX - minX);
+      const worldH = Math.max(1, maxY - minY);
+      const vw = vp.clientWidth || 800;
+      const vh = vp.clientHeight || 600;
+      const availW = Math.max(120, vw - 80);
+      const availH = Math.max(120, vh - 80);
+      const z = appState.zoom || 1;
+      let newZ = z;
+      if (worldW * z > availW || worldH * z > availH) {
+        newZ = Math.max(0.25, Math.min(1.2, Math.min(availW / worldW, availH / worldH)));
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      appState.zoom = newZ;
+      appState.panOffsetX = Math.round((vw / 2) - cx * newZ);
+      appState.panOffsetY = Math.round((vh / 2) - cy * newZ);
+      applyStageTransform();
+    }
+
     function selectCategory(catId) {
       appState.viewingArchivedCatId = null;
       appState.selectedCategoryId = catId;
       renderAll();
-      // 只在内容完全跑出视野时平移拉回，绝不改写用户自己调好的缩放比例
-      ensureContentInView();
+      if (catId === 'all') {
+        // 全部主题总览：整体自适应（保留原有铺满行为）
+        centerVisibleGraphInViewport(false);
+      } else {
+        // 单个课题：区域重心居中
+        centerCategoryInViewport(catId);
+      }
     }
 
     // 旧入口保留：统一走确认弹窗
@@ -6011,8 +6062,18 @@
       }
       document.querySelectorAll('[data-board-task-id]').forEach(el => {
         const id = el.getAttribute('data-board-task-id');
-        if (id === prevId && id !== nextId) el.classList.remove('quad-item-selected');
-        else if (id === nextId) el.classList.add('quad-item-selected');
+        const isSel = id === nextId;
+        const wasSel = id === prevId;
+        if (!isSel && !wasSel) return;
+        // 四象限卡片与列表卡片的高亮类不同，分别处理（修复列表模式高亮残留）
+        if (el.classList.contains('quad-item')) {
+          el.classList.toggle('quad-item-selected', isSel);
+        } else {
+          el.classList.toggle('border-indigo-600', isSel);
+          el.classList.toggle('ring-2', isSel);
+          el.classList.toggle('ring-indigo-500/15', isSel);
+          el.classList.toggle('border-slate-200/80', !isSel);
+        }
       });
     }
 
@@ -6231,7 +6292,13 @@
       patches.forEach(p => {
         if (p.type === 'status') {
           const t = getTaskById(p.id);
-          if (t) t.status = p.value;
+          if (t) {
+            t.status = p.value;
+            // 状态补丁附带子步骤快照：勾选完成会把全部子步骤打勾，撤销时必须一并还原
+            if (Array.isArray(p.subs) && Array.isArray(t.subtasks)) {
+              t.subtasks.forEach((s, i) => { if (typeof p.subs[i] === 'boolean') s.done = p.subs[i]; });
+            }
+          }
         } else if (p.type === 'field') {
           const t = getTaskById(p.id);
           if (t) t[p.field] = p.value;
@@ -6328,13 +6395,16 @@
         return;
       }
       const nextStatus = (mode === 'queue' || mode === 'todo') ? 'todo' : 'in_progress';
-      recordUndo({
-        label: '切换状态',
-        before: [{ type: 'status', id: taskId, value: task.status }],
-        after: [{ type: 'status', id: taskId, value: nextStatus }]
-      });
+      const beforeStatus = task.status;
+      const beforeSubs = (task.subtasks || []).map(s => Boolean(s.done));
       if (task.status === 'done') restoreSubtasksFromUndo(task);
       task.status = nextStatus;
+      // 先变更再快照：restoreSubtasksFromUndo 也会改子步骤，after 必须取变更后的真实状态
+      recordUndo({
+        label: '切换状态',
+        before: [{ type: 'status', id: taskId, value: beforeStatus, subs: beforeSubs }],
+        after: [{ type: 'status', id: taskId, value: task.status, subs: (task.subtasks || []).map(s => Boolean(s.done)) }]
+      });
       saveState();
       renderAll();
     }
@@ -6365,6 +6435,7 @@
       const task = getTaskById(taskId);
       if (!task) return;
       const beforeStatus = task.status;
+      const beforeSubs = (task.subtasks || []).map(s => Boolean(s.done));
       if (task.status === 'done') {
         task.status = 'in_progress';
         restoreSubtasksFromUndo(task);
@@ -6384,8 +6455,8 @@
       }
       recordUndo({
         label: '切换状态',
-        before: [{ type: 'status', id: taskId, value: beforeStatus }],
-        after: [{ type: 'status', id: taskId, value: task.status }]
+        before: [{ type: 'status', id: taskId, value: beforeStatus, subs: beforeSubs }],
+        after: [{ type: 'status', id: taskId, value: task.status, subs: (task.subtasks || []).map(s => Boolean(s.done)) }]
       });
       saveState();
       renderAll();
@@ -6687,11 +6758,12 @@
       if (e.touches && e.touches.length === 2) {
         e.preventDefault();
         const a = e.touches[0], b = e.touches[1];
+        const vpr = vp.getBoundingClientRect();
         appState.pinchStart = {
           dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
           zoom: appState.zoom || 1,
-          midX: (a.clientX + b.clientX) / 2,
-          midY: (a.clientY + b.clientY) / 2,
+          midX: ((a.clientX + b.clientX) / 2) - (vpr ? vpr.left : 0),
+          midY: ((a.clientY + b.clientY) / 2) - (vpr ? vpr.top : 0),
           panX: appState.panOffsetX || 0,
           panY: appState.panOffsetY || 0
         };
@@ -6723,12 +6795,18 @@
         const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
         const raw = appState.pinchStart.zoom * (dist / appState.pinchStart.dist);
         const newZ = Math.max(0.25, Math.min(1.5, Math.round(raw * 20) / 20));
-        if (newZ === appState.zoom) return;
         const midX = (a.clientX + b.clientX) / 2;
         const midY = (a.clientY + b.clientY) / 2;
+        // 锚点必须换算到视口坐标系（clientX 含侧栏/顶栏偏移），与滚轮缩放 zoomCanvas 同口径，同时支持双指边缩放边平移
+        const vpr = vp.getBoundingClientRect();
+        const mx = midX - (vpr ? vpr.left : 0);
+        const my = midY - (vpr ? vpr.top : 0);
         const ratio = newZ / appState.pinchStart.zoom;
-        appState.panOffsetX = Math.round(midX - (midX - appState.pinchStart.panX) * ratio);
-        appState.panOffsetY = Math.round(midY - (midY - appState.pinchStart.panY) * ratio);
+        const nextPanX = Math.round(mx - (appState.pinchStart.midX - appState.pinchStart.panX) * ratio);
+        const nextPanY = Math.round(my - (appState.pinchStart.midY - appState.pinchStart.panY) * ratio);
+        if (newZ === appState.zoom && nextPanX === appState.panOffsetX && nextPanY === appState.panOffsetY) return;
+        appState.panOffsetX = nextPanX;
+        appState.panOffsetY = nextPanY;
         appState.zoom = newZ;
         applyStageTransform();
       }, { passive: false });
@@ -8222,7 +8300,7 @@
       hideDirErrorBanner();
       const restored = normalizeLoaded(JSON.parse(bak));
       if (restored) {
-        appState.data = restored;
+        adoptWorkspaceData(restored);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
         if (isGitHubSyncEnabled()) scheduleGhSync();
         renderAll();
@@ -8674,7 +8752,7 @@
       if (!grid) return;
       const sorted = getSortedMemos();
       if (sorted.length === 0) {
-        grid.innerHTML = `<div class="col-span-full bg-white/80 border border-dashed border-amber-300 rounded-2xl p-10 text-center text-slate-500 text-[13.5px]">还没有便签——在上方写一条，或在近期看板用「记一笔」随手贴过来吧 📝</div>`;
+        grid.innerHTML = `<div class="col-span-full bg-white/80 border border-dashed border-amber-300 rounded-2xl p-10 text-center text-slate-500 text-[13.5px]">还没有便签——点右上角「+ 新增便签」开始，或在近期看板用「记一笔」随手贴过来吧 📝</div>`;
         return;
       }
       grid.innerHTML = sorted.map(m => {
@@ -8746,7 +8824,7 @@
                 return;
               }
             }
-            appState.data = check.data;
+            adoptWorkspaceData(check.data);
             upgradeLegacySingleColumnIfNeeded();
             appState.selectedTaskId = null;
             appState.selectedCategoryId = 'all';
@@ -8804,7 +8882,7 @@
               showToast('⛔ 替换前备份失败，已中止覆盖');
               return;
             }
-            appState.data = remote;
+            adoptWorkspaceData(remote);
             appState.selectedTaskId = null;
             appState.selectedCategoryId = 'all';
             saveState();
@@ -8855,8 +8933,7 @@
             showToast('⛔ 替换前备份失败，已中止覆盖');
             return;
           }
-          appState.data = remote;
-          if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
+          adoptWorkspaceData(remote);
           saveState();
           renderAll();
           showToast('已读回文件夹里的记录（替换前的页面数据已另存一份）');
@@ -8931,7 +9008,7 @@
 
       // 本地还没有任何记录 → 文件里的就是唯一真数据，直接读回（哪怕它的时间戳更旧）
       if (!localHasData) {
-        appState.data = raw;
+        adoptWorkspaceData(raw);
         if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
         return 'adopted';
@@ -8952,7 +9029,7 @@
           showToast('⚠️ 自动同步前备份失败，暂不覆盖当前页面');
           return 'error';
         }
-        appState.data = raw;
+        adoptWorkspaceData(raw);
         if (!getTaskById(appState.selectedTaskId)) appState.selectedTaskId = null;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
         return 'adopted';
@@ -8964,9 +9041,11 @@
     }
 
     async function initDataDir() {
+      if (appState.readOnlyMode) return 'readonly';
       try {
         const dir = await dirLoadHandle();
         if (!dir) { updateDirUI(); setSaveStatus('local'); return 'none'; }
+        if (appState.readOnlyMode) return 'readonly'; // 等待句柄期间另一标签页可能已上锁
         appState.dataDir = dir;
         appState.dataDirReadError = false;   // 每次启动重新检测，不沿用上次会话的错误状态
         rememberLocalDirName(dir.name);
@@ -9547,7 +9626,7 @@
     }
 
     async function applyAdoptedRemote(remoteData, remoteSha, toastMsg) {
-      appState.data = remoteData;
+      adoptWorkspaceData(remoteData);
       appState.ghLastSha = remoteSha;
       appState.ghDirty = false;
       appState.ghLastError = '';
@@ -9589,7 +9668,7 @@
             label: '✨ 智能合并两端',
             action: async () => {
               await savePreCloudSnapshot('智能合并前');
-              appState.data = mergeRes.data;
+              adoptWorkspaceData(mergeRes.data);
               appState.ghLastSha = remoteSha;
               try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
               if (appState.dataDir) scheduleDirWrite();
@@ -9671,7 +9750,7 @@
           const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
           if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
             await savePreCloudSnapshot('自动合并前');
-            appState.data = mergeRes.data;
+            adoptWorkspaceData(mergeRes.data);
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
             if (appState.dataDir) scheduleDirWrite();
             appState.ghSyncing = false;
@@ -9740,7 +9819,7 @@
                 if (base && base.data && remoteFp !== base.fp) {
                   const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
                   if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
-                    appState.data = mergeRes.data;
+                    adoptWorkspaceData(mergeRes.data);
                     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
                     renderAll();
                   } else {
@@ -9787,7 +9866,7 @@
                 const mergeRes = mergeThreeWayWorkspace(base.data, appState.data, remote);
                 if (mergeRes && mergeRes.data && mergeRes.conflicts.length === 0) {
                   await savePreCloudSnapshot('自动合并前');
-                  appState.data = mergeRes.data;
+                  adoptWorkspaceData(mergeRes.data);
                   appState.ghLastSha = latest.sha;
                   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data)); } catch (e) {}
                   if (appState.dataDir) scheduleDirWrite();
@@ -9933,7 +10012,7 @@
         const remote = normalizeLoaded(res.parsed);
         if (!remote) throw new Error('云端文件格式异常');
         await savePreCloudSnapshot('强制拉取前');
-        appState.data = remote;
+        adoptWorkspaceData(remote);
         appState.ghLastSha = res.sha;
         appState.ghDirty = false;
         appState.ghLastSyncAt = formatDateTimeStamp(new Date()).display;
@@ -10430,7 +10509,9 @@
     // 不支持 Web Locks 的环境（旧浏览器）保持原有行为不做限制。
     function showReadOnlyBanner(show) {
       const el = document.getElementById('readOnlyBanner');
-      if (el) el.classList.toggle('hidden', !show);
+      if (!el) return;
+      el.classList.toggle('hidden', !show);
+      el.classList.toggle('flex', Boolean(show));
     }
     function enterReadOnlyMode() {
       if (appState.readOnlyMode) return;
@@ -10439,49 +10520,67 @@
       setSaveStatus('readonly');
       showToast('👁 检测到本工作区已在其他标签页打开，此处切换为只读预览');
     }
-    function exitReadOnlyMode() {
+    async function exitReadOnlyMode() {
       if (!appState.readOnlyMode) return;
       appState.readOnlyMode = false;
       showReadOnlyBanner(false);
-      // 只读期间另一标签页可能改过数据，读回最新缓存再渲染
+      // 只读期间另一标签页可能改过数据，读回最新缓存再渲染（走 adoptWorkspaceData 同步清撤销栈）
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = migrateDataSchema(JSON.parse(raw));
           if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.tasks)) {
-            appState.data = parsed;
-            bumpDataVersion();
-            if (appState.selectedTaskId && !getTaskById(appState.selectedTaskId)) {
-              const active = getActiveTasks();
-              appState.selectedTaskId = active.length ? active[0].id : null;
-            }
+            adoptWorkspaceData(parsed);
             renderAll();
           }
         }
       } catch (e) {}
-      setSaveStatus('local');
+      setSaveStatus(appState.dataDir ? 'ok' : 'local');
       showToast('✓ 本页已恢复为可编辑模式');
+      // 若启动时因只读跳过了本地文件夹与云端初始化，恢复编辑后自动补挂
+      if (!appState.dataDir) {
+        const localStatus = await initDataDir();
+        if (localStatus !== 'conflict' && localStatus !== 'error' && localStatus !== 'readonly') {
+          await initGitHubSync();
+        } else {
+          appState.ghConfig = loadGitHubConfig();
+          updateSyncButtonsUI();
+        }
+      } else if (isGitHubSyncEnabled()) {
+        pullFromGitHub(true);
+      }
     }
     function tryAcquireWorkspaceLock() {
-      if (!navigator.locks || !navigator.locks.request) return;
-      navigator.locks.request('lly_workspace_write_lock', { ifAvailable: true }, (lock) => {
-        if (!lock) {
-          enterReadOnlyMode();
-          return new Promise(() => {});
-        }
-        const wasReadOnly = Boolean(appState.readOnlyMode);
-        appState.readOnlyMode = false;
-        showReadOnlyBanner(false);
-        if (wasReadOnly) exitReadOnlyMode();
-        return new Promise(() => {}); // 持锁直到本页关闭
-      }).catch(() => {});
+      if (!navigator.locks || !navigator.locks.request) return Promise.resolve('unsupported');
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+        navigator.locks.request('lly_workspace_write_lock', { ifAvailable: true }, (lock) => {
+          if (!lock) {
+            enterReadOnlyMode();
+            finish('readonly');
+            return; // 没抢到锁不需要持锁，直接结束本次请求（不留悬空 Promise）
+          }
+          // 抢到锁：若此前处于只读（另一标签页刚关闭），先重新读回数据再解除只读。
+          // 注意顺序——必须先把恢复逻辑跑完，不能提前清标志位。
+          if (appState.readOnlyMode) {
+            exitReadOnlyMode();
+          } else {
+            appState.readOnlyMode = false;
+            showReadOnlyBanner(false);
+          }
+          finish('acquired');
+          return new Promise(() => {}); // 持锁直到本页关闭
+        }).catch(() => finish('error'));
+      });
     }
     function startWorkspaceLockWatch() {
-      if (!navigator.locks || !navigator.locks.request) return;
-      tryAcquireWorkspaceLock();
+      if (!navigator.locks || !navigator.locks.request) return Promise.resolve('unsupported');
+      const initial = tryAcquireWorkspaceLock();
       setInterval(() => {
         if (appState.readOnlyMode) tryAcquireWorkspaceLock();
       }, 8000);
+      return initial;
     }
 
     function flushPendingEditsBeforeLeave() {
@@ -10572,6 +10671,8 @@
     });
 
     window.onload = async () => {
+      // 多标签互斥锁最先竞争并等待首次判定完成：确保任何本地/云端读写开始前已明确只读态
+      await startWorkspaceLockWatch();
       await loadState();
       if (window.innerWidth < 768) {
         appState.currentView = 'recent';
@@ -10583,14 +10684,13 @@
         centerVisibleGraphInViewport(false);
       }
       const localStatus = await initDataDir();
-      if (localStatus !== 'conflict' && localStatus !== 'error') {
+      if (localStatus !== 'conflict' && localStatus !== 'error' && localStatus !== 'readonly') {
         await initGitHubSync();
       } else {
         appState.ghConfig = loadGitHubConfig();
         updateSyncButtonsUI();
       }
       const vp = document.getElementById('canvasViewport');
-      startWorkspaceLockWatch();
       if (vp && vp.addEventListener) {
         vp.addEventListener('wheel', (e) => {
           // Ctrl/⌘ + 滚轮 = 缩放；普通滚轮 = 平移画布（画布用 transform 平移，不能靠原生滚动）
